@@ -287,7 +287,7 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         emit Supply(supplyBefore, supplyBefore - value);
     }
 
-    function findBlockEpoch(uint256 curveType, uint256 _block, uint256 maxEpoch) internal view returns(uint256) {
+    function _findBlockEpoch(uint256 curveType, uint256 _block, uint256 maxEpoch) internal view returns(uint256) {
         uint256 _min = 0;
         uint256 _max = maxEpoch;
         for (uint24 i = 0; i < 128; i ++) {
@@ -344,7 +344,7 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return uint256(uPoint.bias);
     }
 
-    function supplyAt(uint256 curveType, Point memory point, uint256 blk) internal view returns(uint256) {
+    function _supplyAt(uint256 curveType, Point memory point, uint256 blk) internal view returns(uint256) {
         Point memory lastPoint = point;
         uint256 ti = (lastPoint.blk / WEEK) * WEEK;
         for (uint24 i = 0; i < 255; i ++) {
@@ -372,32 +372,32 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         uint256 _epoch = epoch[TOTAL_CURVE];
         Point memory lastPoint = pointHistory[TOTAL_CURVE][_epoch];
         require(blk >= lastPoint.blk, "Too Early");
-        return supplyAt(TOTAL_CURVE, lastPoint, blk);
+        return _supplyAt(TOTAL_CURVE, lastPoint, blk);
     }
 
     function stakeSupply(uint256 blk) external view returns(uint256) {
         uint256 _epoch = epoch[STAKE_CURVE];
         Point memory lastPoint = pointHistory[STAKE_CURVE][_epoch];
         require(blk >= lastPoint.blk, "Too Early");
-        return supplyAt(STAKE_CURVE, lastPoint, blk);
+        return _supplyAt(STAKE_CURVE, lastPoint, blk);
     }
 
     function totalSupplyAt(uint256 blk) external view returns(uint256) {
         require(blk <= block.number, "Block Too Late");
         uint256 _epoch = epoch[TOTAL_CURVE];
-        uint256 targetEpoch = findBlockEpoch(TOTAL_CURVE, blk, _epoch);
+        uint256 targetEpoch = _findBlockEpoch(TOTAL_CURVE, blk, _epoch);
 
         Point memory point = pointHistory[TOTAL_CURVE][targetEpoch];
-        return supplyAt(TOTAL_CURVE, point, blk);
+        return _supplyAt(TOTAL_CURVE, point, blk);
     }
 
     function stakeSupplyAt(uint256 blk) external view returns(uint256) {
         require(blk <= block.number, "Block Too Late");
         uint256 _epoch = epoch[STAKE_CURVE];
-        uint256 targetEpoch = findBlockEpoch(STAKE_CURVE, blk, _epoch);
+        uint256 targetEpoch = _findBlockEpoch(STAKE_CURVE, blk, _epoch);
 
         Point memory point = pointHistory[STAKE_CURVE][targetEpoch];
-        return supplyAt(STAKE_CURVE, point, blk);
+        return _supplyAt(STAKE_CURVE, point, blk);
     }
 
     function stake(uint256 nftId) external {
