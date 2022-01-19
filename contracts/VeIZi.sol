@@ -13,14 +13,20 @@ import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
     using SafeERC20 for IERC20;
     
+    /// @dev Point of segments
+    ///  for each segment, y = bias - (t - blk) * slope
     struct Point {
         int256 bias;
         int256 slope;
+        // start of segment
         uint256 blk;
     }
 
+    /// @dev locked info of nft
     struct LockedBalance {
+        // amount of token locked
         int256 amount;
+        // end block
         uint256 end;
     }
 
@@ -29,41 +35,80 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
     int128 constant INCREASE_LOCK_AMOUNT = 2;
     int128 constant INCREASE_UNLOCK_TIME = 3;
 
+    /// @notice emit if user successfully deposit (calling increaseAmount, createLock increaseUnlockTime)
+    /// @param nftId id of nft, starts from 1
+    /// @param value amount of token locked
+    /// @param lockBlk end block
+    /// @param depositType createLock / increaseAmount / increaseUnlockTime
+    /// @param blk start block
     event Deposit(uint256 indexed nftId, uint256 value, uint256 indexed lockBlk, int128 depositType, uint256 blk);
+
+    /// @notice emit if user successfuly withdraw
+    /// @param nftId id of nft, starts from 1
+    /// @param value amount of token released
+    /// @param blk block number when calling withdraw(...)
     event Withdraw(uint256 indexed nftId, uint256 value, uint256 blk);
+
+    /// @notice emit if user successfully stake an nft
+    /// @param nftId id of nft, starts from 1
+    /// @param owner address of user
     event Stake(uint256 indexed nftId, address indexed owner);
+
+    /// @notice emit if user unstake a staked nft
+    /// @param nftId id of nft, starts from 1
+    /// @param owner address of user
     event Unstake(uint256 indexed nftId, address indexed owner);
+
+    /// @notice emit if total amount of locked token changes
+    /// @param preSupply total amount before change
+    /// @param supply total amount after change
     event Supply(uint256 preSupply, uint256 supply);
 
+    /// @notice number of block in a week (estimated)
     uint256 public WEEK;
+    /// @notice number of block during 4 years
     uint256 public MAXTIME;
     uint256 constant MULTIPLIER = 10 ** 18;
 
+    /// @notice erc-20 token to lock
     address public token;
+    /// @notice total amount of locked token
     uint256 public supply;
 
-    // mapping(address => LockedBalance) public locked;
+    /// @notice num of nft generated
     uint256 public nftNum = 0;
+
+    /// @notice locked info of each nft
     mapping(uint256 => LockedBalance) public nftLocked;
 
     uint256 constant TOTAL_CURVE = 0;
     uint256 constant STAKE_CURVE = 1;
 
     uint256[2] public epoch;
+    /// @notice weight-curve of 2 kinds of nft-collection before check-point
+    ///    pointHistory[0] means curve of total-weight of all nft
+    ///    pointHistory[1] means curve of total-weight of all staked nft
     mapping(uint256 => Point)[2] public pointHistory;
-    mapping(uint256 => mapping(uint256 => Point)) public nftPointHistory;
-    mapping(uint256 => uint256) public nftPointEpoch;
     mapping(uint256 => int256)[2] public slopeChanges;
 
+    /// @notice weight-curve of each nft
+    mapping(uint256 => mapping(uint256 => Point)) public nftPointHistory;
+    mapping(uint256 => uint256) public nftPointEpoch;
+
+    /// @notice total num of nft staked
     uint256 stakeNum = 0; // +1 every calling stake(...)
 
+    /// @notice stake info, mainly used to prevent double-spending
     struct StakeStatus {
-        // (stakeId, owner, LockedBalance.end) can prevent double-spending
+        // (stakeId, owner, LockedBalance.end) can prevent double-spending, 0 for not staked
         uint256 stakeId; // >=1, unique for every staking
+        // 0 for not staked
         address owner;
     }
 
+    /// @notice nftId to StakeStatus
     mapping(uint256 => StakeStatus) public stakeStatus;
+    /// @notice nftid the user staked, 0 for no staked. each user can stake atmost 1 nft
     mapping(address => uint256) public stakedNft;
 
     modifier checkAuth(uint256 nftId, bool allowStaked) {
@@ -76,8 +121,11 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         _;
     }
 
-    constructor(address token_addr, uint24 blockPerSecond) ERC721("VeIZi", "VeIZi") {
-        token = token_addr;
+    /// @notice constructor
+    /// @param tokenAddr address of locked token
+    /// @param blockPerSecond block num per second on the chain
+    constructor(address tokenAddr, uint24 blockPerSecond) ERC721("VeIZi", "VeIZi") {
+        token = tokenAddr;
         pointHistory[TOTAL_CURVE][0].blk = block.number;
         pointHistory[STAKE_CURVE][0].blk = block.number;
 
@@ -85,6 +133,8 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         MAXTIME = 4 * 365 * 3600 / blockPerSecond;
     }
 
+    /// @notice get slope of last segment of weight-curve of an nft
+    /// @param nftId id of nft, starts from 1
     function getLastNftSlope(uint256 nftId) external view returns(int256) {
         uint256 uepoch = nftPointEpoch[nftId];
         return nftPointHistory[nftId][uepoch].slope;
@@ -221,11 +271,16 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         emit Supply(supplyBefore, supplyBefore + _value);
     }
 
+    /// @notice push check point of two global curves to current block
     function checkPoint() external {
         _checkPoint(TOTAL_CURVE, 0, LockedBalance({amount: 0, end: 0}), LockedBalance({amount: 0, end: 0}));
         _checkPoint(STAKE_CURVE, 0, LockedBalance({amount: 0, end: 0}), LockedBalance({amount: 0, end: 0}));
     }
 
+    /// @notice create a new lock and generate a new nft
+    /// @param _value amount of token to lock
+    /// @param _unlockTime future block number to unlock
+    /// @return nftId id of generated nft, starts from 1
     function createLock(uint256 _value, uint256 _unlockTime) external nonReentrant returns(uint256 nftId) {
         uint256 unlockTime = (_unlockTime / WEEK) * WEEK;
         nftNum ++;
@@ -239,6 +294,9 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         _depositFor(nftId, _value, unlockTime, _locked, CREATE_LOCK_TYPE);
     }
 
+    /// @notice increase amount of locked token in an nft
+    /// @param nftId id of nft, starts from 1
+    /// @param _value increase amount
     function increaseAmount(uint256 nftId, uint256 _value) external nonReentrant {
         LockedBalance memory _locked = nftLocked[nftId];
         require(_value > 0, "amount should >0");
@@ -251,6 +309,9 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         }
     }
 
+    /// @notice increase unlock time of an nft
+    /// @param nftId id of nft
+    /// @param _unlockTime future block number to unlock
     function increaseUnlockTime(uint256 nftId, uint256 _unlockTime) checkAuth(nftId, true) external nonReentrant {
         LockedBalance memory _locked = nftLocked[nftId];
         uint256 unlockTime = (_unlockTime / WEEK) * WEEK;
@@ -267,6 +328,8 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         }
     }
 
+    /// @notice withdraw an unstaked-nft
+    /// @param nftId id of nft
     function withdraw(uint256 nftId) external checkAuth(nftId, false) nonReentrant {
         LockedBalance memory _locked = nftLocked[nftId];
         require(block.number >= _locked.end, "The lock didn't expire");
@@ -304,6 +367,10 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return _min;
     }
 
+    /// @notice weight of nft at certain time after latest update of fhat nft
+    /// @param nftId id of nft
+    /// @param blockNumber specified blockNumber after latest update of this nft (amount change or end change)
+    /// @return weight
     function nftSupply(uint256 nftId, uint256 blockNumber) public view returns(uint256) {
         uint256 _epoch = nftPointEpoch[nftId];
         if (_epoch == 0) {
@@ -319,6 +386,10 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         }
     }
     
+    /// @notice weight of user's staked nft at a certain time after latest update of this nft
+    /// @param addr address of user
+    /// @param blockNumber specified blockNumber after latest update of this nft (amount change or end change)
+    /// @return weight of nft
     function stakeAddrSupply(address addr, uint256 blockNumber) external view returns(uint256) {
         uint256 nftId = stakedNft[addr];
         if (nftId == 0) {
@@ -327,6 +398,10 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return nftSupply(nftId, blockNumber);
     }
 
+    /// notice weight of nft at certain time before latest update of fhat nft
+    /// @param nftId id of nft
+    /// @param _block specified blockNumber before latest update of this nft (amount change or end change)
+    /// @return weight
     function nftSupplyAt(uint256 nftId, uint256 _block) public view returns(uint256) {
         require(_block <= block.number, "Block Too Late");
 
@@ -352,6 +427,10 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return uint256(uPoint.bias);
     }
 
+    /// @notice weight of user's staked nft at a certain time before latest update of this nft
+    /// @param addr address of user
+    /// @param blockNumber specified blockNumber before latest update of this nft (amount change or end change)
+    /// @return weight
     function stakeAddrSupplyAt(address addr, uint256 blockNumber) external view returns(uint256) {
         uint256 nftId = stakedNft[addr];
         if (nftId == 0) {
@@ -384,6 +463,9 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return uint256(lastPoint.bias);
     }
 
+    /// @notice total weight of all nft at a certain time after check-point of all-nft-collection's curve
+    /// @param blk specified blockNumber, "certain time" in above line
+    /// @return total weight
     function totalSupply(uint256 blk) external view returns(uint256) {
         uint256 _epoch = epoch[TOTAL_CURVE];
         Point memory lastPoint = pointHistory[TOTAL_CURVE][_epoch];
@@ -391,6 +473,9 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return _supplyAt(TOTAL_CURVE, lastPoint, blk);
     }
 
+    /// @notice total weight of all staked nft at a certain time after check-point of staked-nft-collection's curve
+    /// @param blk specified blockNumber, "certain time" in above line
+    /// @return total weight
     function stakeSupply(uint256 blk) external view returns(uint256) {
         uint256 _epoch = epoch[STAKE_CURVE];
         Point memory lastPoint = pointHistory[STAKE_CURVE][_epoch];
@@ -398,6 +483,9 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return _supplyAt(STAKE_CURVE, lastPoint, blk);
     }
 
+    /// @notice total weight of all nft at a certain time before check-point of all-nft-collection's curve
+    /// @param blk specified blockNumber, "certain time" in above line
+    /// @return total weight
     function totalSupplyAt(uint256 blk) external view returns(uint256) {
         require(blk <= block.number, "Block Too Late");
         uint256 _epoch = epoch[TOTAL_CURVE];
@@ -407,6 +495,9 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return _supplyAt(TOTAL_CURVE, point, blk);
     }
 
+    /// @notice total weight of all staked nft at a certain time before check-point of staked-nft-collection's curve
+    /// @param blk specified blockNumber, "certain time" in above line
+    /// @return total weight
     function stakeSupplyAt(uint256 blk) external view returns(uint256) {
         require(blk <= block.number, "Block Too Late");
         uint256 _epoch = epoch[STAKE_CURVE];
@@ -416,6 +507,8 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return _supplyAt(STAKE_CURVE, point, blk);
     }
 
+    /// @notice stake an nft
+    /// @param nftId id of nft
     function stake(uint256 nftId) external {
         require(nftLocked[nftId].end > block.number, "Lock expired");
         // nftId starts from 1, zero or not owner(including staked) cannot be transfered
@@ -435,6 +528,8 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         emit Stake(nftId, msg.sender);
     }
 
+    /// @notice unstake an nft
+    /// @param nftId id of nft
     function unStake(uint256 nftId) external {
         StakeStatus storage status = stakeStatus[nftId];
         require(status.owner == msg.sender, "Not Owner or Not staking!");
