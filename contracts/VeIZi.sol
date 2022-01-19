@@ -318,8 +318,16 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
             return uint256(lastPoint.bias);
         }
     }
+    
+    function stakeAddrSupply(address addr, uint256 blockNumber) external view returns(uint256) {
+        uint256 nftId = stakedNft[addr];
+        if (nftId == 0) {
+            return 0;
+        }
+        return nftSupply(nftId, blockNumber);
+    }
 
-    function nftSupplyAt(uint256 nftId, uint256 _block) external view returns(uint256) {
+    function nftSupplyAt(uint256 nftId, uint256 _block) public view returns(uint256) {
         require(_block <= block.number, "Block Too Late");
 
         uint256 _min = 0;
@@ -342,6 +350,14 @@ contract VeIZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
             uPoint.bias = 0;
         }
         return uint256(uPoint.bias);
+    }
+
+    function stakeAddrSupplyAt(address addr, uint256 blockNumber) external view returns(uint256) {
+        uint256 nftId = stakedNft[addr];
+        if (nftId == 0) {
+            return 0;
+        }
+        return nftSupplyAt(nftId, blockNumber);
     }
 
     function _supplyAt(uint256 curveType, Point memory point, uint256 blk) internal view returns(uint256) {
