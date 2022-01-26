@@ -494,14 +494,15 @@ contract VeIZi2 is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
     /// @param user address of user
     /// @return nftId id of veizi-nft
     /// @return stakeId id of stake
-    /// @return lockedAmount amount of locked iZi in nft
-    /// @return end unlock time of nft
-    function stakingInfo(address user) external view returns(uint256 nftId, uint256 stakeId, uint256 lockedAmount, uint256 end) {
+    /// @return amount amount of locked iZi in nft
+    function stakingInfo(address user) external view returns(uint256 nftId, uint256 stakeId, uint256 amount) {
         nftId = stakedNft[user];
         if (nftId != 0) {
             stakeId = nft2StakeId[nftId];
-            lockedAmount = uint256(nftLocked[nftId].amount);
-            end = nftLocked[nftId].end;
+            amount = uint256(nftLocked[nftId].amount);
+        } else {
+            stakeId = 0;
+            amount = 0;
         }
     }
 
