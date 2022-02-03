@@ -225,6 +225,10 @@ contract VeiZi2 is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
                     slopeChanges[newLocked.end] = cpState.newDslope;
                 }
             }
+            uint256 nftEpoch = nftPointEpoch[nftId] + 1;
+            uNew.blk = block.number;
+            nftPointHistory[nftId][nftEpoch] = uNew;
+            nftPointEpoch[nftId] = nftEpoch;
         }
         
     }
@@ -339,7 +343,7 @@ contract VeiZi2 is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         require(lockedTo.end >= lockedFrom.end, "endblock of nftFrom cannot later than nftTo");
 
         // cancel lockedFrom in the weight-curve
-        _checkPoint(nftFrom, lockedFrom, LockedBalance({amount: 0, end: 0}));
+        _checkPoint(nftFrom, lockedFrom, LockedBalance({amount: 0, end: lockedFrom.end}));
         LockedBalance memory newLockedTo = lockedTo;
         newLockedTo.amount += lockedFrom.amount;
 
