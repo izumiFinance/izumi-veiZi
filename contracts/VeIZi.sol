@@ -234,6 +234,7 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
                 uint256 nftEpoch = nftPointEpoch[nftId] + 1;
                 uNew.blk = block.number;
                 nftPointHistory[nftId][nftEpoch] = uNew;
+                nftPointEpoch[nftId] = nftEpoch;
             }
         }
         
