@@ -10,7 +10,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 
-contract VeIZi2 is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
+contract VeiZi2 is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
     using SafeERC20 for IERC20;
     
     /// @dev Point of segments
@@ -110,13 +110,13 @@ contract VeIZi2 is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
 
     /// @notice constructor
     /// @param tokenAddr address of locked token
-    /// @param blockPerSecond block num per second on the chain
-    constructor(address tokenAddr, uint24 blockPerSecond) ERC721("VeIZi", "VeIZi") {
+    /// @param secondsPerBlockX64 seconds between two adj blocks, in 64-bit fix point format
+    constructor(address tokenAddr, uint256 secondsPerBlockX64) ERC721("VeiZi", "VeiZi") {
         token = tokenAddr;
         pointHistory[0].blk = block.number;
 
-        WEEK = 7 * 24 * 3600 / blockPerSecond;
-        MAXTIME = 4 * 365 * 3600 / blockPerSecond;
+        WEEK = 7 * 24 * 3600 * (1<<64) / secondsPerBlockX64;
+        MAXTIME = 4 * 365 * 24 * 3600 * (1<<64)/ secondsPerBlockX64;
     }
 
     /// @notice get slope of last segment of weight-curve of an nft
