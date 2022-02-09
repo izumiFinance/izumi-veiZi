@@ -155,7 +155,7 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
 
         rewardInfo = _rewardInfo;
         rewardInfo.accRewardPerShare = 0;
-        rewardInfo.lastTouchBlock = _rewardInfo.startBlock;
+        rewardInfo.lastTouchBlock = Math.max(_rewardInfo.startBlock, block.number);
     }
 
     /// @notice get slope of last segment of weight-curve of an nft
