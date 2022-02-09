@@ -676,4 +676,35 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         require(nftId != 0, 'No Staked veizi-nft!');
         _collectReward(nftId, msg.sender);
     }
+
+
+    /// @notice Set new reward end block.
+    /// @param _endBlock New end block.
+    function modifyEndBlock(uint256 _endBlock) external onlyOwner {
+        require(_endBlock > block.number, "OUT OF DATE");
+        _updateGlobalStatus();
+        // jump if origin endBlock < block.number
+        rewardInfo.lastTouchBlock = block.number;
+        rewardInfo.endBlock = _endBlock;
+    }
+
+    /// @notice Set new reward per block.
+    /// @param _rewardPerBlock new reward per block
+    function modifyRewardPerBlock(uint256 _rewardPerBlock)
+        external
+        onlyOwner
+    {
+        _updateGlobalStatus();
+        rewardInfo.rewardPerBlock = _rewardPerBlock;
+    }
+
+
+    /// @notice Set new reward provider.
+    /// @param provider New provider
+    function modifyProvider(address provider)
+        external
+        onlyOwner
+    {
+        rewardInfo.provider = provider;
+    }
 }
