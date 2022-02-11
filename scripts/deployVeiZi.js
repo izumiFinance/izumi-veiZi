@@ -4,7 +4,7 @@ const BigNumber = require("bignumber.js");
 
 // example
 // HARDHAT_NETWORK='izumiTest' \
-//     node deployVeiZi.js 14 0xD4D6F030520649c7375c492D37ceb56571f768D0 0.1 18 14
+//     node deployVeiZi.js 14 0xD4D6F030520649c7375c492D37ceb56571f768D0 0.1 18 14909 20000
 const v = process.argv
 const net = process.env.HARDHAT_NETWORK
 

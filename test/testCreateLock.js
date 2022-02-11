@@ -33,10 +33,10 @@ describe("test uniswap price oracle", function () {
         veiZi = await veiZiFactory.deploy(iZi.address, secondsPerBlockX64, {
             provider: signer.address,
             accRewardPerShare: 0,
-            rewardPerBlock: 0,
+            rewardPerBlock: '100000000000000000',
             lastTouchBlock: 0,
             startBlock: 0,
-            endBlock: 0
+            endBlock: 1000
         });
 
         iZi.connect(tester).approve(veiZi.address, '1000000000000000000000000000000');
@@ -59,6 +59,14 @@ describe("test uniswap price oracle", function () {
         const totalVeiZi = Number((await veiZi.totalVeiZi(currentBlockNumber)).toString());
 
         console.log('total veizi: ', totalVeiZi);
+
+        await veiZi.connect(tester).stake('1');
+        await ethers.provider.send('evm_mine');
+        await ethers.provider.send('evm_mine');
+        await ethers.provider.send('evm_mine');
+        await ethers.provider.send('evm_mine');
+        await ethers.provider.send('evm_mine');
+        console.log('pending reward: ', (await veiZi.pendingRewardOfToken('1')).toString());
     });
 
 });

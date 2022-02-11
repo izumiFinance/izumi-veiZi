@@ -341,9 +341,10 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         _depositFor(nftId, _value, 0, _locked, INCREASE_LOCK_AMOUNT);
         if (stakingStatus[nftId].stakingId != 0) {
             // this nft is staking
-            stakeiZiAmount += _value;
             address stakingOwner = stakedNftOwners[nftId];
             _collectReward(nftId, stakingOwner);
+            stakeiZiAmount += _value;
+            stakingStatus[nftId].lockAmount += _value;
         }
     }
 
@@ -385,8 +386,8 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     }
 
     /// @notice merge nftFrom to nftTo
-    /// @param nftFrom nft id of nftFrom
-    /// @param nftTo nft id of nftTo
+    /// @param nftFrom nft id of nftFrom, cannot be staked, owner must be msg.sender
+    /// @param nftTo nft id of nftTo, cannot be staked, owner must be msg.sender
     function merge(uint256 nftFrom, uint256 nftTo) external nonReentrant {
         require(_isApprovedOrOwner(msg.sender, nftFrom), "Not Owner of nftFrom");
         require(_isApprovedOrOwner(msg.sender, nftTo), "Not Owner of nftTo");
@@ -696,13 +697,13 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
 
     /// @notice Set new reward end block.
-    /// @param _endBlock New end block.
-    function modifyEndBlock(uint256 _endBlock) external onlyOwner {
-        require(_endBlock > block.number, "OUT OF DATE");
+    /// @param endBlock New end block.
+    function modifyEndBlock(uint256 endBlock) external onlyOwner {
+        require(endBlock > block.number, "OUT OF DATE");
         _updateGlobalStatus();
         // jump if origin endBlock < block.number
         rewardInfo.lastTouchBlock = block.number;
-        rewardInfo.endBlock = _endBlock;
+        rewardInfo.endBlock = endBlock;
     }
 
     /// @notice Set new reward per block.
@@ -713,6 +714,13 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     {
         _updateGlobalStatus();
         rewardInfo.rewardPerBlock = _rewardPerBlock;
+    }
+
+    function modifyStartBlock(uint256 startBlock) external onlyOwner {
+        require(rewardInfo.startBlock > block.number, 'has started!');
+        require(startBlock > block.number, 'OUT OF DATE!');
+        rewardInfo.startBlock = startBlock;
+        rewardInfo.lastTouchBlock = startBlock; // before start, lastTouchBlock = max(block.number, startBlock)
     }
 
 
