@@ -11,10 +11,11 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
+import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 
 import 'hardhat/console.sol';
 
-contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
+contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721Receiver {
     using SafeERC20 for IERC20;
     
     /// @dev Point of segments
@@ -156,6 +157,17 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         rewardInfo = _rewardInfo;
         rewardInfo.accRewardPerShare = 0;
         rewardInfo.lastTouchBlock = Math.max(_rewardInfo.startBlock, block.number);
+
+    }
+
+    /// @notice Used for ERC721 safeTransferFrom
+    function onERC721Received(address, address, uint256, bytes memory) 
+        public 
+        virtual 
+        override 
+        returns (bytes4) 
+    {
+        return this.onERC721Received.selector;
     }
 
     /// @notice get slope of last segment of weight-curve of an nft
@@ -433,13 +445,11 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         }
     }
     
-
-    /// notice weight of nft at certain time before latest update of fhat nft
+    /// notice weight of nft at certain time
     /// @param nftId id of nft
-    /// @param _block specified blockNumber before latest update of this nft (amount change or end change)
+    /// @param _block specified blockNumber
     /// @return weight
     function nftVeiZiAt(uint256 nftId, uint256 _block) public view returns(uint256) {
-        require(_block <= block.number, "Block Too Late");
 
         uint256 _min = 0;
         uint256 _max = nftPointEpoch[nftId];
@@ -456,6 +466,9 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
             }
         }
         Point memory uPoint = nftPointHistory[nftId][_min];
+        if (_block < uPoint.blk) {
+            return 0;
+        }
         uPoint.bias -= uPoint.slope * (int256(_block) - int256(uPoint.blk));
         if (uPoint.bias < 0) {
             uPoint.bias = 0;
@@ -497,15 +510,17 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         return _totalVeiZiAt(lastPoint, blk);
     }
 
-    /// @notice total weight of all nft at a certain time before check-point of all-nft-collection's curve
+    /// @notice total weight of all nft at a certain time
     /// @param blk specified blockNumber, "certain time" in above line
     /// @return total weight
     function totalVeiZiAt(uint256 blk) external view returns(uint256) {
-        require(blk <= block.number, "Block Too Late");
         uint256 _epoch = epoch;
         uint256 targetEpoch = _findBlockEpoch(blk, _epoch);
 
         Point memory point = pointHistory[targetEpoch];
+        if (blk < point.blk) {
+            return 0;
+        }
         return _totalVeiZiAt(point, blk);
     }
 
@@ -568,7 +583,9 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable {
         stakedNftOwners[nftId] = address(0);
         _collectReward(nftId, msg.sender);
         // refund nft
-        safeTransferFrom(address(this), msg.sender, nftId);
+        // note we can not use safeTransferFrom here because the
+        // opterator is msg.sender who is not approved
+        _safeTransfer(address(this), msg.sender, nftId, "");
 
         stakeiZiAmount -= uint256(nftLocked[nftId].amount);
         emit Unstake(nftId, msg.sender);
