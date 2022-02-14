@@ -210,6 +210,17 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 }
             }
         }
+        console.log('currentblock %s', block.number);
+        console.log('old end time: %s', oldLocked.end);
+        console.log('old locked amount: %s', uint256(oldLocked.amount));
+        console.log('uOld.slope: %s', uint256(uOld.slope));
+        console.log('uOld.bias: %s', uint256(uOld.bias));
+        console.log('');
+        console.log('new end time: %s', newLocked.end);
+        console.log('new locked amount: %s', uint256(newLocked.amount));
+        console.log('uNew.slope: %s', uint256(uNew.slope));
+        console.log('uNew.bias: %s', uint256(uNew.bias));
+        console.log('-------------------------------------');
 
         Point memory lastPoint = Point({bias: 0, slope: 0, blk: block.number});
         if (cpState._epoch > 0) {
@@ -261,7 +272,14 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
         }
 
+        console.log("==========================================");
         pointHistory[cpState._epoch] = lastPoint;
+        for (uint256 i = 0; i <= cpState._epoch; i ++) {
+            console.log("point blk: %s", uint256(pointHistory[i].blk));
+            console.log("point slope: %s", uint256(pointHistory[i].slope));
+            console.log("point bias: %s", uint256(pointHistory[i].bias));
+        }
+        console.log("==========================================");
 
         if (nftId != 0) {
             if (oldLocked.end > block.number) {
@@ -400,13 +418,12 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         require(lockedTo.end >= lockedFrom.end, "endblock of nftFrom cannot later than nftTo");
 
         // cancel lockedFrom in the weight-curve
-        _checkPoint(nftFrom, lockedFrom, LockedBalance({amount: 0, end: lockedFrom.end}));
-        LockedBalance memory newLockedTo = LockedBalance({amount: lockedTo.amount, end: lockedFrom.end});
-        newLockedTo.amount += lockedFrom.amount;
+        _checkPoint(nftFrom, LockedBalance({amount: lockedFrom.amount, end: lockedFrom.end}), LockedBalance({amount: 0, end: lockedFrom.end}));
 
         // add locked iZi of nftFrom to nftTo
-        _checkPoint(nftTo, lockedTo, newLockedTo);
+        _checkPoint(nftTo, LockedBalance({amount: lockedTo.amount, end: lockedTo.end}), LockedBalance({amount: lockedTo.amount + lockedFrom.amount, end: lockedTo.end}));
         nftLocked[nftFrom].amount = 0;
+        nftLocked[nftTo].amount = lockedTo.amount + lockedFrom.amount;
         _burn(nftFrom);
     }
 
@@ -718,7 +735,8 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
     function modifyStartBlock(uint256 startBlock) external onlyOwner {
         require(rewardInfo.startBlock > block.number, 'has started!');
-        require(startBlock > block.number, 'OUT OF DATE!');
+        require(startBlock > block.number, 'Too Early!');
+        require(startBlock < rewardInfo.endBlock, 'Too Late!');
         rewardInfo.startBlock = startBlock;
         rewardInfo.lastTouchBlock = startBlock; // before start, lastTouchBlock = max(block.number, startBlock)
     }
