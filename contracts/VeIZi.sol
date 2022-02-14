@@ -13,7 +13,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 
-import 'hardhat/console.sol';
+// import 'hardhat/console.sol'; 
 
 contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721Receiver {
     using SafeERC20 for IERC20;
@@ -210,17 +210,6 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 }
             }
         }
-        console.log('currentblock %s', block.number);
-        console.log('old end time: %s', oldLocked.end);
-        console.log('old locked amount: %s', uint256(oldLocked.amount));
-        console.log('uOld.slope: %s', uint256(uOld.slope));
-        console.log('uOld.bias: %s', uint256(uOld.bias));
-        console.log('');
-        console.log('new end time: %s', newLocked.end);
-        console.log('new locked amount: %s', uint256(newLocked.amount));
-        console.log('uNew.slope: %s', uint256(uNew.slope));
-        console.log('uNew.bias: %s', uint256(uNew.bias));
-        console.log('-------------------------------------');
 
         Point memory lastPoint = Point({bias: 0, slope: 0, blk: block.number});
         if (cpState._epoch > 0) {
@@ -272,14 +261,7 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
         }
 
-        console.log("==========================================");
         pointHistory[cpState._epoch] = lastPoint;
-        for (uint256 i = 0; i <= cpState._epoch; i ++) {
-            console.log("point blk: %s", uint256(pointHistory[i].blk));
-            console.log("point slope: %s", uint256(pointHistory[i].slope));
-            console.log("point bias: %s", uint256(pointHistory[i].bias));
-        }
-        console.log("==========================================");
 
         if (nftId != 0) {
             if (oldLocked.end > block.number) {
