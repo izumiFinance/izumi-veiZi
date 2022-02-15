@@ -564,6 +564,7 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     }
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
+        super._beforeTokenTransfer(from, to, tokenId);
         // when calling stake() or unStake() (to is contract address, or from is contract address)
         // delegateAddress is required to remain
         if (from != address(this) && to != address(this)) {
