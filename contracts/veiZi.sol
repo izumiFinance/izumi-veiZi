@@ -13,6 +13,8 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 
+// import "hardhat/console.sol";
+
 contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721Receiver {
     using SafeERC20 for IERC20;
     
@@ -219,6 +221,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         uint256 lastCheckPoint = lastPoint.blk;
 
         uint256 ti = (lastCheckPoint / WEEK) * WEEK;
+        
         for (uint24 i = 0; i < 255; i ++) {
             ti += WEEK;
             int256 dSlope = 0;
@@ -228,6 +231,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 dSlope = slopeChanges[ti];
             }
             // ti >= lastCheckPoint
+            
             lastPoint.bias -= lastPoint.slope * int256(ti - lastCheckPoint);
             lastPoint.slope += dSlope;
             if (lastPoint.bias < 0) {
@@ -238,16 +242,12 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
             }
             lastCheckPoint = ti;
             lastPoint.blk = ti;
-            cpState._epoch += 1;
-
             if (ti == block.number) {
-                lastPoint.blk = block.number;
                 break;
-            } else {
-                pointHistory[cpState._epoch] = lastPoint;
             }
         }
 
+        cpState._epoch += 1;
         epoch = cpState._epoch;
 
         if (nftId != 0) {
