@@ -13,8 +13,6 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import '@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol';
 import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 
-// import 'hardhat/console.sol'; 
-
 contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721Receiver {
     using SafeERC20 for IERC20;
     
