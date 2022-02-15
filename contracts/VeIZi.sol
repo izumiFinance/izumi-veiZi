@@ -114,6 +114,9 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @notice nftid the user staked, 0 for no staked. each user can stake atmost 1 nft
     mapping(address => uint256) public stakedNft;
 
+    string public _baseTokenURI;
+
+    mapping(uint256 => address) public delegateAddress;
 
     struct RewardInfo {
         /// @dev who provides reward
@@ -146,7 +149,7 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @notice constructor
     /// @param tokenAddr address of locked token
     /// @param _secondsPerBlockX64 seconds between two adj blocks, in 64-bit fix point format
-    constructor(address tokenAddr, uint256 _secondsPerBlockX64, RewardInfo memory _rewardInfo) ERC721("VeiZi", "VeiZi") {
+    constructor(address tokenAddr, uint256 _secondsPerBlockX64, RewardInfo memory _rewardInfo) ERC721("iZUMi DAO veNFT", "veiZi") {
         token = tokenAddr;
         pointHistory[0].blk = block.number;
 
@@ -311,6 +314,14 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @notice push check point of two global curves to current block
     function checkPoint() external {
         _checkPoint(0, LockedBalance({amount: 0, end: 0}), LockedBalance({amount: 0, end: 0}));
+    }
+
+    function _baseURI() internal view virtual override returns (string memory) {
+        return _baseTokenURI;
+    }
+
+    function setBaseURI(string calldata baseURI) external onlyOwner {
+        _baseTokenURI = baseURI;
     }
 
     /// @notice create a new lock and generate a new nft
@@ -546,6 +557,18 @@ contract VeiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
             );
         }
         _updateStakingStatus(tokenId);
+    }
+
+    function setDelegateAddress(uint256 nftId, address addr) external checkAuth(nftId, true) nonReentrant {
+        delegateAddress[nftId] = addr;
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
+        // when calling stake() or unStake() (to is contract address, or from is contract address)
+        // delegateAddress is required to remain
+        if (from != address(this) && to != address(this)) {
+            delegateAddress[tokenId] = address(0);
+        }
     }
 
     /// @notice stake an nft
