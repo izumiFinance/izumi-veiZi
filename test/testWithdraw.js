@@ -32,7 +32,7 @@ describe("test uniswap price oracle", function () {
         iZi = await tokenFactory.deploy('iZi', 'iZi', 18);
 
         
-        const veiZiFactory = await ethers.getContractFactory("VeiZi");
+        const veiZiFactory = await ethers.getContractFactory("veiZi");
         const secondsOfWeek = 7 * 24 * 3600;
         const secondsPerBlockX64 = BigNumber(secondsOfWeek).times(BigNumber(2).pow(64)).toFixed(0);
         veiZi = await veiZiFactory.deploy(iZi.address, secondsPerBlockX64, {

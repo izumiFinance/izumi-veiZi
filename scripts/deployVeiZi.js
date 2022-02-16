@@ -24,7 +24,7 @@ async function main() {
     
   const [deployer] = await hardhat.ethers.getSigners();
 
-  const VeiZi = await hardhat.ethers.getContractFactory("VeiZi");
+  const veiZiFactory = await hardhat.ethers.getContractFactory("veiZi");
 
   console.log("Paramters: ");
   for ( var i in para) { console.log("    " + i + ": " + para[i]); }
@@ -37,7 +37,7 @@ async function main() {
 
   const rewardPerBlockNoDecimal = BigNumber(para.rewardPerBlockDecimal).times(10 ** Number(para.rewardTokenDecimal)).toFixed(0);
 
-  const veiZi = await VeiZi.deploy(
+  const veiZi = await veiZiFactory.deploy(
       iZi, para.secondsPerBlockX64, 
       {
         provider: para.rewardProvider,

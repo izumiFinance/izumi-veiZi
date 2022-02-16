@@ -243,11 +243,17 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
             lastCheckPoint = ti;
             lastPoint.blk = ti;
             if (ti == block.number) {
+                cpState._epoch += 1;
                 break;
+            } else {
+                if (dSlope != 0) {
+                    // slope changes
+                    cpState._epoch += 1;
+                    pointHistory[cpState._epoch] = lastPoint;
+                }
             }
         }
 
-        cpState._epoch += 1;
         epoch = cpState._epoch;
 
         if (nftId != 0) {
@@ -435,6 +441,25 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         return _min;
     }
 
+    function _findNftBlockEpoch(uint256 nftId, uint256 _block) internal view returns(uint256) {
+
+        uint256 _min = 0;
+        uint256 _max = nftPointEpoch[nftId];
+
+        for (uint24 i = 0; i < 128; i ++) {
+            if (_min >= _max) {
+                break;
+            }
+            uint256 _mid = (_min + _max + 1) / 2;
+            if (nftPointHistory[nftId][_mid].blk <= _block) {
+                _min = _mid;
+            } else {
+                _max = _mid - 1;
+            }
+        }
+        return _min;
+    }
+
     /// @notice weight of nft at certain time after latest update of fhat nft
     /// @param nftId id of nft
     /// @param blockNumber specified blockNumber after latest update of this nft (amount change or end change)
@@ -460,21 +485,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @return weight
     function nftVeiZiAt(uint256 nftId, uint256 _block) public view returns(uint256) {
 
-        uint256 _min = 0;
-        uint256 _max = nftPointEpoch[nftId];
-
-        for (uint24 i = 0; i < 128; i ++) {
-            if (_min >= _max) {
-                break;
-            }
-            uint256 _mid = (_min + _max + 1) / 2;
-            if (nftPointHistory[nftId][_mid].blk <= _block) {
-                _min = _mid;
-            } else {
-                _max = _mid - 1;
-            }
-        }
-        Point memory uPoint = nftPointHistory[nftId][_min];
+        uint256 targetEpoch = _findNftBlockEpoch(nftId, _block);
+        Point memory uPoint = nftPointHistory[nftId][targetEpoch];
         if (_block < uPoint.blk) {
             return 0;
         }
@@ -497,14 +509,15 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 dSlope = slopeChanges[ti];
             }
             lastPoint.bias -= lastPoint.slope * int256(ti - lastPoint.blk);
+            if (lastPoint.bias <= 0) {
+                lastPoint.bias = 0;
+                break;
+            }
             if (ti == blk) {
                 break;
             }
             lastPoint.slope += dSlope;
             lastPoint.blk = ti;
-        }
-        if (lastPoint.bias < 0) {
-            lastPoint.bias = 0;
         }
         return uint256(lastPoint.bias);
     }
@@ -530,20 +543,28 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         if (blk < point.blk) {
             return 0;
         }
-        return _totalVeiZiAt(point, blk);
+        if (targetEpoch == _epoch) {
+            return _totalVeiZiAt(point, blk);
+        } else {
+            point.bias = point.bias - point.slope * (int256(blk) - int256(point.blk));
+            if (point.bias < 0) {
+                point.bias = 0;
+            }
+            return uint256(point.bias);
+        }
     }
 
-    function _updateStakingStatus(uint256 tokenId) internal {
-        StakingStatus storage t = stakingStatus[tokenId];
+    function _updateStakingStatus(uint256 nftId) internal {
+        StakingStatus storage t = stakingStatus[nftId];
         t.lastTouchBlock = rewardInfo.lastTouchBlock;
         t.lastTouchAccRewardPerShare = rewardInfo.accRewardPerShare;
     }
 
     /// @notice Collect pending reward for a single veizi-nft. 
-    /// @param tokenId The related position id.
+    /// @param nftId The related position id.
     /// @param recipient who acquires reward
-    function _collectReward(uint256 tokenId, address recipient) internal {
-        StakingStatus memory t = stakingStatus[tokenId];
+    function _collectReward(uint256 nftId, address recipient) internal {
+        StakingStatus memory t = stakingStatus[nftId];
         
         _updateGlobalStatus();
         uint256 reward = (t.lockAmount * (rewardInfo.accRewardPerShare - t.lastTouchAccRewardPerShare)) / FixedPoints.Q128;
@@ -554,19 +575,19 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 reward
             );
         }
-        _updateStakingStatus(tokenId);
+        _updateStakingStatus(nftId);
     }
 
     function setDelegateAddress(uint256 nftId, address addr) external checkAuth(nftId, true) nonReentrant {
         delegateAddress[nftId] = addr;
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
-        super._beforeTokenTransfer(from, to, tokenId);
+    function _beforeTokenTransfer(address from, address to, uint256 nftId) internal virtual override {
+        super._beforeTokenTransfer(from, to, nftId);
         // when calling stake() or unStake() (to is contract address, or from is contract address)
         // delegateAddress is required to remain
         if (from != address(this) && to != address(this)) {
-            delegateAddress[tokenId] = address(0);
+            delegateAddress[nftId] = address(0);
         }
     }
 
@@ -597,9 +618,9 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     }
 
     /// @notice unstake an nft
-    /// @param nftId id of nft
-    function unStake(uint256 nftId) external nonReentrant {
-        require(stakedNft[msg.sender] == nftId, "Not Owner or Not staking!");
+    function unStake() external nonReentrant {
+        uint256 nftId = stakedNft[msg.sender];
+        require(nftId != 0, "No Staked Nft!");
         stakingStatus[nftId].stakingId = 0;
         stakedNft[msg.sender] = 0;
         stakedNftOwners[nftId] = address(0);
@@ -672,15 +693,15 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     }
 
     /// @notice View function to see pending Reward for a single position.
-    /// @param tokenId The related position id.
+    /// @param nftId The related position id.
     /// @return reward iZi reward amount
-    function pendingRewardOfToken(uint256 tokenId)
+    function pendingRewardOfToken(uint256 nftId)
         public
         view
         returns (uint256 reward)
     {
         reward = 0;
-        StakingStatus memory t = stakingStatus[tokenId];
+        StakingStatus memory t = stakingStatus[nftId];
         if (t.stakingId != 0) {
             // we are sure that stakeiZiAmount is not 0
             uint256 tokenReward = _getRewardBlockNum(
@@ -703,9 +724,9 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         returns (uint256 reward)
     {
         reward = 0;
-        uint256 tokenId = stakedNft[user];
-        if (tokenId != 0) {
-            reward = pendingRewardOfToken(tokenId);
+        uint256 nftId = stakedNft[user];
+        if (nftId != 0) {
+            reward = pendingRewardOfToken(nftId);
         }
     }
 

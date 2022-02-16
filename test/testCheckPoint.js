@@ -309,6 +309,7 @@ describe("test uniswap price oracle", function () {
 
         // check point
         let checkPoint = WEEK * 11;
+        let checkPointEpoch = 12;
         currentPoint.bias = stringMinus(currentPoint.bias, stringMul(String(checkPoint - startTime11), currentPoint.slope));
         currentPoint.slope = stringMinus(currentPoint.slope, segment6.slope);
         currentPoint.slope = stringMinus(currentPoint.slope, segment7.slope);
@@ -334,7 +335,8 @@ describe("test uniswap price oracle", function () {
         currentPoint.bias = stringAdd(currentPoint.bias, segment12.bias);
         currentPoint.slope = stringAdd(currentPoint.slope, segment12.slope);
 
-        const point12 = await getPoint(veiZi, 12);
+        checkPointEpoch += 1;
+        const point12 = await getPoint(veiZi, checkPointEpoch);
         expect(point12.bias).to.equal(currentPoint.bias);
         expect(point12.slope).to.equal(currentPoint.slope);
         expect(point12.blk).to.equal(startTime12);
@@ -351,7 +353,8 @@ describe("test uniswap price oracle", function () {
         currentPoint.bias = stringAdd(currentPoint.bias, segment13.bias);
         currentPoint.slope = stringAdd(currentPoint.slope, segment13.slope);
 
-        const point13 = await getPoint(veiZi, 13);
+        checkPointEpoch += 1;
+        const point13 = await getPoint(veiZi, checkPointEpoch);
         expect(point13.bias).to.equal(currentPoint.bias);
         expect(point13.slope).to.equal(currentPoint.slope);
         expect(point13.blk).to.equal(startTime13);
@@ -369,7 +372,8 @@ describe("test uniswap price oracle", function () {
         currentPoint.bias = stringAdd(currentPoint.bias, segment14.bias);
         currentPoint.slope = stringAdd(currentPoint.slope, segment14.slope);
 
-        const point14 = await getPoint(veiZi, 14);
+        checkPointEpoch += 1;
+        const point14 = await getPoint(veiZi, checkPointEpoch);
         expect(point14.bias).to.equal(currentPoint.bias);
         expect(point14.slope).to.equal(currentPoint.slope);
         expect(point14.blk).to.equal(startTime14);
@@ -381,11 +385,12 @@ describe("test uniswap price oracle", function () {
         currentPoint.slope = stringMinus(currentPoint.slope, segment12.slope);
         currentPoint.slope = stringMinus(currentPoint.slope, segment11.slope);
         currentPoint.slope = stringMinus(currentPoint.slope, segment1.slope);
+        checkPointEpoch += 1;
 
         // currentBlockNumber = await waitUntilJustBefore(checkPoint20);
         // await veiZi.connect(tester).checkPoint();
 
-        // const point15 = await getPoint(veiZi, 15);
+        // const point15 = await getPoint(veiZi, checkPointEpoch);
         // expect(point15.bias).to.equal(currentPoint.bias);
         // expect(point15.slope).to.equal(currentPoint.slope);
         // expect(point15.blk).to.equal(checkPoint20);
@@ -396,11 +401,12 @@ describe("test uniswap price oracle", function () {
         currentPoint.slope = stringMinus(currentPoint.slope, segment14.slope);
         currentPoint.slope = stringMinus(currentPoint.slope, segment10.slope);
         currentPoint.slope = stringMinus(currentPoint.slope, segment2.slope);
+        checkPointEpoch += 1;
 
         // currentBlockNumber = await waitUntilJustBefore(checkPoint25);
         // await veiZi.connect(tester).checkPoint();
 
-        // const pointAt25 = await getPoint(veiZi, 15);
+        // const pointAt25 = await getPoint(veiZi, checkPointEpoch);
         // expect(pointAt25.bias).to.equal(currentPoint.bias);
         // expect(pointAt25.slope).to.equal(currentPoint.slope);
         // expect(pointAt25.blk).to.equal(checkPoint25);
@@ -410,6 +416,7 @@ describe("test uniswap price oracle", function () {
         currentPoint.bias = stringMinus(currentPoint.bias, stringMul(String(checkPoint30 - checkPoint25), currentPoint.slope));
         currentPoint.slope = stringMinus(currentPoint.slope, segment13.slope);
         currentPoint.slope = stringMinus(currentPoint.slope, segment3.slope);
+        checkPointEpoch += 1;
 
         // check point
         const checkPoint32 = WEEK * 32;
@@ -418,7 +425,8 @@ describe("test uniswap price oracle", function () {
         currentBlockNumber = await waitUntilJustBefore(checkPoint32);
         await veiZi.connect(tester).checkPoint();
 
-        const pointAt32 = await getPoint(veiZi, 15);
+        checkPointEpoch += 1;
+        const pointAt32 = await getPoint(veiZi, checkPointEpoch);
         expect(pointAt32.bias).to.equal(currentPoint.bias);
         expect(pointAt32.slope).to.equal(currentPoint.slope);
         expect(pointAt32.blk).to.equal(checkPoint32);
