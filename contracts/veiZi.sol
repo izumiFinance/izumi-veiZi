@@ -370,9 +370,9 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         LockedBalance memory _locked = nftLocked[nftId];
         uint256 unlockTime = (_unlockTime / WEEK) * WEEK;
 
-        require(_locked.end > block.number, "Lock expired");
         require(_locked.amount > 0, "Nothing is locked");
-        require(unlockTime > _locked.end, "Can only lock until time in the future");
+        require(unlockTime > _locked.end, "Can only increase unlock time");
+        require(unlockTime > block.number, "Can only lock until time in the future");
         require(unlockTime <= block.number + MAXTIME, "Voting lock can be 4 years max");
 
         _depositFor(nftId, 0, unlockTime, _locked, INCREASE_UNLOCK_TIME);
@@ -398,6 +398,14 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
         emit Withdraw(nftId, value, block.number);
         emit Supply(supplyBefore, supplyBefore - value);
+    }
+
+    /// @notice burn an unstaked-nft (dangerous!!!)
+    /// @param nftId id of nft
+    function burn(uint256 nftId) external checkAuth(nftId, false) nonReentrant {
+        LockedBalance memory _locked = nftLocked[nftId];
+        require(_locked.amount == 0, "Not Withdrawed!");
+        _burn(nftId);
     }
 
     /// @notice merge nftFrom to nftTo
