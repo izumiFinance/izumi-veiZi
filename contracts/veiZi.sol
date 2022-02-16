@@ -435,7 +435,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         return _min;
     }
 
-    /// @notice weight of nft at certain time after latest update of fhat nft
+    /// @notice weight of nft (veiZi amount) at certain time after latest update of that nft
     /// @param nftId id of nft
     /// @param blockNumber specified blockNumber after latest update of this nft (amount change or end change)
     /// @return weight
@@ -454,7 +454,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         }
     }
     
-    /// notice weight of nft at certain time
+    /// @notice weight of nft (veiZi amount) at certain time
     /// @param nftId id of nft
     /// @param _block specified blockNumber
     /// @return weight
@@ -564,7 +564,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     function _beforeTokenTransfer(address from, address to, uint256 tokenId) internal virtual override {
         super._beforeTokenTransfer(from, to, tokenId);
         // when calling stake() or unStake() (to is contract address, or from is contract address)
-        // delegateAddress is required to remain
+        // delegateAddress will not change
         if (from != address(this) && to != address(this)) {
             delegateAddress[tokenId] = address(0);
         }
@@ -671,8 +671,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         }
     }
 
-    /// @notice View function to see pending Reward for a single position.
-    /// @param tokenId The related position id.
+    /// @notice View function to see pending Reward for a staked NFT.
+    /// @param tokenId The staked NFT id.
     /// @return reward iZi reward amount
     function pendingRewardOfToken(uint256 tokenId)
         public
