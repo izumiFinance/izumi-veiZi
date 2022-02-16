@@ -353,7 +353,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         require(_value > 0, "amount should >0");
         require(_locked.amount > 0, "No existing lock found");
         require(_locked.end > block.number, "Can only lock until time in the future");
-        _depositFor(nftId, _value, 0, _locked, (msg.sender == ownerOf(nftId)) ? INCREASE_LOCK_AMOUNT : DEPOSIT_FOR_TYPE);
+        _depositFor(nftId, _value, 0, _locked, (msg.sender == ownerOf(nftId) || stakedNft[msg.sender] == nftId) ? INCREASE_LOCK_AMOUNT : DEPOSIT_FOR_TYPE);
         if (stakingStatus[nftId].stakingId != 0) {
             // this nft is staking
             address stakingOwner = stakedNftOwners[nftId];
@@ -460,7 +460,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         return _min;
     }
 
-    /// @notice weight of nft at certain time after latest update of fhat nft
+    /// @notice weight of nft (veiZi amount) at certain time after latest update of that nft
     /// @param nftId id of nft
     /// @param blockNumber specified blockNumber after latest update of this nft (amount change or end change)
     /// @return weight
@@ -479,7 +479,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         }
     }
     
-    /// notice weight of nft at certain time
+    /// @notice weight of nft (veiZi amount) at certain time
     /// @param nftId id of nft
     /// @param _block specified blockNumber
     /// @return weight
@@ -585,7 +585,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     function _beforeTokenTransfer(address from, address to, uint256 nftId) internal virtual override {
         super._beforeTokenTransfer(from, to, nftId);
         // when calling stake() or unStake() (to is contract address, or from is contract address)
-        // delegateAddress is required to remain
+        // delegateAddress will not change
         if (from != address(this) && to != address(this)) {
             delegateAddress[nftId] = address(0);
         }
@@ -692,8 +692,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         }
     }
 
-    /// @notice View function to see pending Reward for a single position.
-    /// @param nftId The related position id.
+    /// @notice View function to see pending Reward for a staked NFT.
+    /// @param nftId The staked NFT id.
     /// @return reward iZi reward amount
     function pendingRewardOfToken(uint256 nftId)
         public
