@@ -652,6 +652,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         if (nftId != 0) {
             stakingId = stakingStatus[nftId].stakingId;
             amount = uint256(nftLocked[nftId].amount);
+            uint256 remainBlock = Math.max(nftLocked[nftId].end, block.number) - block.number;
+            amount = amount / MAXTIME * remainBlock;
         } else {
             stakingId = 0;
             amount = 0;
