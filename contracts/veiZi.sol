@@ -103,6 +103,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     struct StakingStatus {
         uint256 stakingId;
         uint256 lockAmount;
+        uint256 lastVeiZi;
         uint256 lastTouchBlock;
         uint256 lastTouchAccRewardPerShare;
     }
@@ -376,6 +377,11 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         require(unlockTime <= block.number + MAXTIME, "Voting lock can be 4 years max");
 
         _depositFor(nftId, 0, unlockTime, _locked, INCREASE_UNLOCK_TIME);
+        if (stakingStatus[nftId].stakingId != 0) {
+            // this nft is staking
+            address stakingOwner = stakedNftOwners[nftId];
+            _collectReward(nftId, stakingOwner);
+        }
     }
 
     /// @notice withdraw an unstaked-nft
@@ -566,6 +572,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         StakingStatus storage t = stakingStatus[nftId];
         t.lastTouchBlock = rewardInfo.lastTouchBlock;
         t.lastTouchAccRewardPerShare = rewardInfo.accRewardPerShare;
+        t.lastVeiZi = t.lockAmount / MAXTIME * (Math.max(block.number, nftLocked[nftId].end) - block.number);
     }
 
     /// @notice Collect pending reward for a single veizi-nft. 
@@ -575,7 +582,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         StakingStatus memory t = stakingStatus[nftId];
         
         _updateGlobalStatus();
-        uint256 reward = (t.lockAmount * (rewardInfo.accRewardPerShare - t.lastTouchAccRewardPerShare)) / FixedPoints.Q128;
+        uint256 reward = (t.lastVeiZi * (rewardInfo.accRewardPerShare - t.lastTouchAccRewardPerShare)) / FixedPoints.Q128;
         if (reward > 0) {
             IERC20(token).safeTransferFrom(
                 rewardInfo.provider,
@@ -617,6 +624,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         stakingStatus[nftId] = StakingStatus({
             stakingId: stakeNum,
             lockAmount: lockAmount,
+            lastVeiZi: lockAmount / MAXTIME * (Math.max(block.number, nftLocked[nftId].end) - block.number),
             lastTouchBlock: rewardInfo.lastTouchBlock,
             lastTouchAccRewardPerShare: rewardInfo.accRewardPerShare
         });
@@ -718,10 +726,10 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 rewardInfo.lastTouchBlock,
                 block.number
             ) * rewardInfo.rewardPerBlock;
-            // we are sure that stakeiZiAmount >= t.lockAmount
+            // we are sure that stakeiZiAmount >= t.lockAmount > 0
             uint256 rewardPerShare = rewardInfo.accRewardPerShare + (tokenReward * FixedPoints.Q128) / stakeiZiAmount;
             // l * (currentAcc - lastAcc)
-            reward = (t.lockAmount * (rewardPerShare - t.lastTouchAccRewardPerShare)) / FixedPoints.Q128;
+            reward = (t.lastVeiZi * (rewardPerShare - t.lastTouchAccRewardPerShare)) / FixedPoints.Q128;
         }
     }
 
