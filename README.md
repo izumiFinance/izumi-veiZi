@@ -1,4 +1,12 @@
-# Basic Sample Hardhat Project
+# Contracts for veiZi-NFT
+
+## veiZi-NFT Economic Model Design
+
+A veiZi-NFT represents a membership card. A veiZi-NFT locks some iZi token, which is the only certificate for exercising the rights and interests of the izumi platform.
+
+
+
+## Repo: Basic Sample Hardhat Project
 
 This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts.
 
