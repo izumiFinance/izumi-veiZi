@@ -352,7 +352,6 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     function increaseAmount(uint256 nftId, uint256 _value) external nonReentrant {
         LockedBalance memory _locked = nftLocked[nftId];
         require(_value > 0, "amount should >0");
-        require(_locked.amount > 0, "No existing lock found");
         require(_locked.end > block.number, "Can only lock until time in the future");
         _depositFor(nftId, _value, 0, _locked, (msg.sender == ownerOf(nftId) || stakedNft[msg.sender] == nftId) ? INCREASE_LOCK_AMOUNT : DEPOSIT_FOR_TYPE);
         if (stakingStatus[nftId].stakingId != 0) {
@@ -371,7 +370,6 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         LockedBalance memory _locked = nftLocked[nftId];
         uint256 unlockTime = (_unlockTime / WEEK) * WEEK;
 
-        require(_locked.amount > 0, "Nothing is locked");
         require(unlockTime > _locked.end, "Can only increase unlock time");
         require(unlockTime > block.number, "Can only lock until time in the future");
         require(unlockTime <= block.number + MAXTIME, "Voting lock can be 4 years max");
