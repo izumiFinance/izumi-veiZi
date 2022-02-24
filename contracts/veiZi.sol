@@ -115,7 +115,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @notice nftid the user staked, 0 for no staked. each user can stake atmost 1 nft
     mapping(address => uint256) public stakedNft;
 
-    string public _baseTokenURI;
+    string public baseTokenURI;
 
     mapping(uint256 => address) public delegateAddress;
 
@@ -322,11 +322,11 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     }
 
     function _baseURI() internal view virtual override returns (string memory) {
-        return _baseTokenURI;
+        return baseTokenURI;
     }
 
     function setBaseURI(string calldata baseURI) external onlyOwner {
-        _baseTokenURI = baseURI;
+        baseTokenURI = baseURI;
     }
 
     /// @notice create a new lock and generate a new nft
