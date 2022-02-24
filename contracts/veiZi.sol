@@ -398,7 +398,6 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
         _checkPoint(nftId, oldLocked, _locked);
         IERC20(token).safeTransfer(msg.sender, value);
-        _burn(nftId);
 
         emit Withdraw(nftId, value, block.number);
         emit Supply(supplyBefore, supplyBefore - value);
@@ -433,7 +432,6 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         _checkPoint(nftTo, LockedBalance({amount: lockedTo.amount, end: lockedTo.end}), LockedBalance({amount: lockedTo.amount + lockedFrom.amount, end: lockedTo.end}));
         nftLocked[nftFrom].amount = 0;
         nftLocked[nftTo].amount = lockedTo.amount + lockedFrom.amount;
-        _burn(nftFrom);
     }
 
     function _findBlockEpoch(uint256 _block, uint256 maxEpoch) internal view returns(uint256) {
