@@ -33,8 +33,7 @@ describe("test uniswap price oracle", function () {
 
         
         const veiZiFactory = await ethers.getContractFactory("veiZi");
-        const secondsPerBlockX64 = BigNumber(14).times(BigNumber(2).pow(64)).toFixed(0);
-        veiZi = await veiZiFactory.deploy(iZi.address, secondsPerBlockX64, {
+        veiZi = await veiZiFactory.deploy(iZi.address, {
             provider: signer.address,
             accRewardPerShare: 0,
             rewardPerBlock: '100000000000000000',
@@ -49,55 +48,51 @@ describe("test uniswap price oracle", function () {
     });
     
     it("merge", async function () {
-        let currentBlockNumber = await ethers.provider.getBlockNumber();
-        console.log('current block number: ', currentBlockNumber);
         const MAXTIME = Number((await veiZi.MAXTIME()).toString());
-        currentBlockNumber = await ethers.provider.getBlockNumber();
-
         const WEEK = Number((await veiZi.WEEK()).toString());
         console.log('max time: ', MAXTIME);
         console.log('week time: ', WEEK);
+        const blockNumStart = await ethers.provider.getBlockNumber();
+        const blockStart = await ethers.provider.getBlock(blockNumStart);
+        let timestampStart = blockStart.timestamp;
+        if (timestampStart % WEEK !== 0) {
+            timestampStart = timestampStart - timestampStart % WEEK + WEEK;
+        }
         
-        const unlockTime1 = currentBlockNumber + Math.floor(MAXTIME / 2);
+        const unlockTime1 = timestampStart + Math.floor(MAXTIME / 2);
         const iZiAmount1 = decimalToUnDecimalStr(1000);
         await veiZi.connect(tester).createLock(iZiAmount1, unlockTime1);
 
-        const unlockTime2 = currentBlockNumber + MAXTIME;
+        const unlockTime2 = timestampStart + MAXTIME;
         const iZiAmount2 = decimalToUnDecimalStr(600);
         await veiZi.connect(tester).createLock(iZiAmount2, unlockTime2)
 
-        const unlockTime3 = currentBlockNumber + Math.floor(MAXTIME / 4);
+        const unlockTime3 = timestampStart + Math.floor(MAXTIME / 4);
         const iZiAmount3 = decimalToUnDecimalStr(1500);
         await veiZi.connect(tester).createLock(iZiAmount3, unlockTime3);
 
-        const unlockTime4 = currentBlockNumber + Math.floor(WEEK * 4 * 6);
+        const unlockTime4 = timestampStart + Math.floor(WEEK * 4 * 6);
         const iZiAmount4 = decimalToUnDecimalStr(800);
         await veiZi.connect(tester).createLock(iZiAmount4, unlockTime4);
 
-        const unlockTime5 = currentBlockNumber + Math.floor(WEEK * 4 * 3);
+        const unlockTime5 = timestampStart + Math.floor(WEEK * 4 * 3);
         const iZiAmount5 = decimalToUnDecimalStr(1000);
         await veiZi.connect(tester).createLock(iZiAmount5, unlockTime5);
 
-        currentBlockNumber = await ethers.provider.getBlockNumber();
-        console.log('current block number: ', currentBlockNumber);
-        const totalVeiZi1 = (await veiZi.totalVeiZi(currentBlockNumber)).toString();
+        const totalVeiZi1 = (await veiZi.totalVeiZi(timestampStart + Math.floor(WEEK * 3 + WEEK / 2))).toString();
 
         console.log('total veizi: ', totalVeiZi1);
 
 
         await veiZi.connect(tester).merge(4, 1);
-        currentBlockNumber = await ethers.provider.getBlockNumber();
-        console.log('current block number: ', currentBlockNumber);
-        const totalVeiZi2 = (await veiZi.totalVeiZi(currentBlockNumber)).toString();
+        const totalVeiZi2 = (await veiZi.totalVeiZi(timestampStart + Math.floor(WEEK * 3 + WEEK / 2))).toString();
 
         console.log('total veizi: ', totalVeiZi2);
 
 
 
         await veiZi.connect(tester).merge(1, 2);
-        currentBlockNumber = await ethers.provider.getBlockNumber();
-        console.log('current block number: ', currentBlockNumber);
-        const totalVeiZi3 = (await veiZi.totalVeiZi(currentBlockNumber)).toString();
+        const totalVeiZi3 = (await veiZi.totalVeiZi(timestampStart + Math.floor(WEEK * 3 + WEEK / 2))).toString();
 
         console.log('total veizi: ', totalVeiZi3);
 
