@@ -4,19 +4,17 @@ const BigNumber = require("bignumber.js");
 
 // example
 // HARDHAT_NETWORK='izumiTest' \
-//     node deployVeiZi.js 14 0xD4D6F030520649c7375c492D37ceb56571f768D0 0.1 18 14909 20000
+//     node deployVeiZi.js 0xD4D6F030520649c7375c492D37ceb56571f768D0 0.1 18 14909 20000
 const v = process.argv
 const net = process.env.HARDHAT_NETWORK
 
 
 var para = {
-    secondsPerBlock: v[2],
-    secondsPerBlockX64: BigNumber(v[2]).times(BigNumber(2).pow(64)).toFixed(0, 2),
-    rewardProvider: v[3],
-    rewardPerBlockDecimal: v[4],
-    rewardTokenDecimal: v[5],
-    startBlock: v[6],
-    endBlock: v[7],
+    rewardProvider: v[2],
+    rewardPerBlockDecimal: v[3],
+    rewardTokenDecimal: v[4],
+    startBlock: v[5],
+    endBlock: v[6],
 }
 
 
@@ -38,7 +36,7 @@ async function main() {
   const rewardPerBlockNoDecimal = BigNumber(para.rewardPerBlockDecimal).times(10 ** Number(para.rewardTokenDecimal)).toFixed(0);
 
   const veiZi = await veiZiFactory.deploy(
-      iZi, para.secondsPerBlockX64, 
+      iZi, 
       {
         provider: para.rewardProvider,
         accRewardPerShare: 0,
