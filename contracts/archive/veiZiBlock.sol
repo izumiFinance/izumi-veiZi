@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.4;
 
-import "./libraries/multicall.sol";
-import "./libraries/Math.sol";
-import "./libraries/FixedPoints.sol";
+import "../libraries/multicall.sol";
+import "../libraries/Math.sol";
+import "../libraries/FixedPoints.sol";
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -15,16 +15,16 @@ import '@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol';
 
 // import "hardhat/console.sol";
 
-contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721Receiver {
+contract veiZiBlock is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721Receiver {
     using SafeERC20 for IERC20;
     
     /// @dev Point of segments
-    ///  for each segment, y = bias - (t - timestamp) * slope
+    ///  for each segment, y = bias - (t - blk) * slope
     struct Point {
         int256 bias;
         int256 slope;
         // start of segment
-        uint256 timestamp;
+        uint256 blk;
     }
 
     /// @dev locked info of nft
@@ -45,14 +45,14 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @param value amount of token locked
     /// @param lockBlk end block
     /// @param depositType createLock / increaseAmount / increaseUnlockTime
-    /// @param timestamp start timestamp
-    event Deposit(uint256 indexed nftId, uint256 value, uint256 indexed lockBlk, int128 depositType, uint256 timestamp);
+    /// @param blk start block
+    event Deposit(uint256 indexed nftId, uint256 value, uint256 indexed lockBlk, int128 depositType, uint256 blk);
 
     /// @notice emit if user successfuly withdraw
     /// @param nftId id of nft, starts from 1
     /// @param value amount of token released
-    /// @param timestamp block timestamp when calling withdraw(...)
-    event Withdraw(uint256 indexed nftId, uint256 value, uint256 timestamp);
+    /// @param blk block number when calling withdraw(...)
+    event Withdraw(uint256 indexed nftId, uint256 value, uint256 blk);
 
     /// @notice emit if user successfully stake an nft
     /// @param nftId id of nft, starts from 1
@@ -149,17 +149,18 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
     /// @notice constructor
     /// @param tokenAddr address of locked token
-    /// @param _rewardInfo reward info
-    constructor(address tokenAddr, RewardInfo memory _rewardInfo) ERC721("iZUMi DAO veNFT", "veiZi") {
+    /// @param _secondsPerBlockX64 seconds between two adj blocks, in 64-bit fix point format
+    constructor(address tokenAddr, uint256 _secondsPerBlockX64, RewardInfo memory _rewardInfo) ERC721("iZUMi DAO veNFT", "veiZi") {
         token = tokenAddr;
-        pointHistory[0].timestamp = block.timestamp;
+        pointHistory[0].blk = block.number;
 
-        WEEK = 7 * 24 * 3600;
-        MAXTIME = (4 * 365 + 1) * 24 * 3600;
+        WEEK = 7 * 24 * 3600 * (1<<64) / _secondsPerBlockX64;
+        MAXTIME = (4 * 365 + 1) * 24 * 3600 * (1<<64)/ _secondsPerBlockX64;
+        secondsPerBlockX64 = _secondsPerBlockX64;
 
         rewardInfo = _rewardInfo;
         rewardInfo.accRewardPerShare = 0;
-        rewardInfo.lastTouchBlock = Math.max(_rewardInfo.startBlock, block.timestamp);
+        rewardInfo.lastTouchBlock = Math.max(_rewardInfo.startBlock, block.number);
 
     }
 
@@ -196,13 +197,13 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         cpState._epoch = epoch;
 
         if (nftId != 0) {
-            if (oldLocked.end > block.timestamp && oldLocked.amount > 0) {
+            if (oldLocked.end > block.number && oldLocked.amount > 0) {
                 uOld.slope = oldLocked.amount / int256(MAXTIME);
-                uOld.bias = uOld.slope * int256(oldLocked.end - block.timestamp);
+                uOld.bias = uOld.slope * int256(oldLocked.end - block.number);
             }
-            if (newLocked.end > block.timestamp && newLocked.amount > 0) {
+            if (newLocked.end > block.number && newLocked.amount > 0) {
                 uNew.slope = newLocked.amount / int256(MAXTIME);
-                uNew.bias = uNew.slope * int256(newLocked.end - block.timestamp);
+                uNew.bias = uNew.slope * int256(newLocked.end - block.number);
             }
             cpState.oldDslope = slopeChanges[oldLocked.end];
             if (newLocked.end != 0) {
@@ -214,19 +215,19 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
             }
         }
 
-        Point memory lastPoint = Point({bias: 0, slope: 0, timestamp: block.timestamp});
+        Point memory lastPoint = Point({bias: 0, slope: 0, blk: block.number});
         if (cpState._epoch > 0) {
             lastPoint = pointHistory[cpState._epoch];
         }
-        uint256 lastCheckPoint = lastPoint.timestamp;
+        uint256 lastCheckPoint = lastPoint.blk;
 
         uint256 ti = (lastCheckPoint / WEEK) * WEEK;
         
         for (uint24 i = 0; i < 255; i ++) {
             ti += WEEK;
             int256 dSlope = 0;
-            if (ti > block.timestamp) {
-                ti = block.timestamp;
+            if (ti > block.number) {
+                ti = block.number;
             } else {
                 dSlope = slopeChanges[ti];
             }
@@ -241,8 +242,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 lastPoint.slope = 0;
             }
             lastCheckPoint = ti;
-            lastPoint.timestamp = ti;
-            if (ti == block.timestamp) {
+            lastPoint.blk = ti;
+            if (ti == block.number) {
                 cpState._epoch += 1;
                 break;
             } else {
@@ -271,28 +272,28 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         pointHistory[cpState._epoch] = lastPoint;
 
         if (nftId != 0) {
-            if (oldLocked.end > block.timestamp) {
+            if (oldLocked.end > block.number) {
                 cpState.oldDslope += uOld.slope;
                 if (newLocked.end == oldLocked.end) {
                     cpState.oldDslope -= uNew.slope;
                 }
                 slopeChanges[oldLocked.end] = cpState.oldDslope;
             }
-            if (newLocked.end > block.timestamp) {
+            if (newLocked.end > block.number) {
                 if (newLocked.end > oldLocked.end) {
                     cpState.newDslope -= uNew.slope;
                     slopeChanges[newLocked.end] = cpState.newDslope;
                 }
             }
             uint256 nftEpoch = nftPointEpoch[nftId] + 1;
-            uNew.timestamp = block.timestamp;
+            uNew.blk = block.number;
             nftPointHistory[nftId][nftEpoch] = uNew;
             nftPointEpoch[nftId] = nftEpoch;
         }
         
     }
 
-    function _depositFor(uint256 nftId, uint256 _value, uint256 unlockTime, LockedBalance memory lockedBalance, int128 depositType) internal {
+    function _depositFor(uint256 nftId, uint256 _value, uint256 unlockBlock, LockedBalance memory lockedBalance, int128 depositType) internal {
         
         LockedBalance memory _locked = lockedBalance;
         uint256 supplyBefore = supply;
@@ -303,15 +304,15 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
         _locked.amount += int256(_value);
 
-        if (unlockTime != 0) {
-            _locked.end = unlockTime;
+        if (unlockBlock != 0) {
+            _locked.end = unlockBlock;
         }
         _checkPoint(nftId, oldLocked, _locked);
         nftLocked[nftId] = _locked;
         if (_value != 0) {
             IERC20(token).safeTransferFrom(msg.sender, address(this), _value);
         }
-        emit Deposit(nftId, _value, _locked.end, depositType, block.timestamp);
+        emit Deposit(nftId, _value, _locked.end, depositType, block.number);
         emit Supply(supplyBefore, supplyBefore + _value);
     }
 
@@ -330,7 +331,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
     /// @notice create a new lock and generate a new nft
     /// @param _value amount of token to lock
-    /// @param _unlockTime future timestamp to unlock
+    /// @param _unlockTime future block number to unlock
     /// @return nftId id of generated nft, starts from 1
     function createLock(uint256 _value, uint256 _unlockTime) external nonReentrant returns(uint256 nftId) {
         uint256 unlockTime = (_unlockTime / WEEK) * WEEK;
@@ -340,8 +341,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         LockedBalance memory _locked = nftLocked[nftId];
         require(_value > 0, "amount should >0");
         require(_locked.amount == 0, "Withdraw old tokens first");
-        require(unlockTime > block.timestamp, "Can only lock until time in the future");
-        require(unlockTime <= block.timestamp + MAXTIME, "Voting lock can be 4 years max");
+        require(unlockTime > block.number, "Can only lock until time in the future");
+        require(unlockTime <= block.number + MAXTIME, "Voting lock can be 4 years max");
         _depositFor(nftId, _value, unlockTime, _locked, CREATE_LOCK_TYPE);
     }
 
@@ -351,7 +352,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     function increaseAmount(uint256 nftId, uint256 _value) external nonReentrant {
         LockedBalance memory _locked = nftLocked[nftId];
         require(_value > 0, "amount should >0");
-        require(_locked.end > block.timestamp, "Can only lock until time in the future");
+        require(_locked.end > block.number, "Can only lock until time in the future");
         _depositFor(nftId, _value, 0, _locked, (msg.sender == ownerOf(nftId) || stakedNft[msg.sender] == nftId) ? INCREASE_LOCK_AMOUNT : DEPOSIT_FOR_TYPE);
         if (stakingStatus[nftId].stakingId != 0) {
             // this nft is staking
@@ -370,8 +371,8 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         uint256 unlockTime = (_unlockTime / WEEK) * WEEK;
 
         require(unlockTime > _locked.end, "Can only increase unlock time");
-        require(unlockTime > block.timestamp, "Can only lock until time in the future");
-        require(unlockTime <= block.timestamp + MAXTIME, "Voting lock can be 4 years max");
+        require(unlockTime > block.number, "Can only lock until time in the future");
+        require(unlockTime <= block.number + MAXTIME, "Voting lock can be 4 years max");
 
         _depositFor(nftId, 0, unlockTime, _locked, INCREASE_UNLOCK_TIME);
         if (stakingStatus[nftId].stakingId != 0) {
@@ -385,7 +386,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @param nftId id of nft
     function withdraw(uint256 nftId) external checkAuth(nftId, false) nonReentrant {
         LockedBalance memory _locked = nftLocked[nftId];
-        require(block.timestamp >= _locked.end, "The lock didn't expire");
+        require(block.number >= _locked.end, "The lock didn't expire");
         uint256 value = uint256(_locked.amount);
 
         LockedBalance memory oldLocked = LockedBalance({amount: _locked.amount, end: _locked.end});
@@ -398,7 +399,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         _checkPoint(nftId, oldLocked, _locked);
         IERC20(token).safeTransfer(msg.sender, value);
 
-        emit Withdraw(nftId, value, block.timestamp);
+        emit Withdraw(nftId, value, block.number);
         emit Supply(supplyBefore, supplyBefore - value);
     }
 
@@ -433,7 +434,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         nftLocked[nftTo].amount = lockedTo.amount + lockedFrom.amount;
     }
 
-    function _findTimestampEpoch(uint256 _timestamp, uint256 maxEpoch) internal view returns(uint256) {
+    function _findBlockEpoch(uint256 _block, uint256 maxEpoch) internal view returns(uint256) {
         uint256 _min = 0;
         uint256 _max = maxEpoch;
         for (uint24 i = 0; i < 128; i ++) {
@@ -441,7 +442,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 break;
             }
             uint256 _mid = (_min + _max + 1) / 2;
-            if (pointHistory[_mid].timestamp <= _timestamp) {
+            if (pointHistory[_mid].blk <= _block) {
                 _min = _mid;
             } else {
                 _max = _mid - 1;
@@ -450,7 +451,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         return _min;
     }
 
-    function _findNftTimestampEpoch(uint256 nftId, uint256 _timestamp) internal view returns(uint256) {
+    function _findNftBlockEpoch(uint256 nftId, uint256 _block) internal view returns(uint256) {
 
         uint256 _min = 0;
         uint256 _max = nftPointEpoch[nftId];
@@ -460,7 +461,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
                 break;
             }
             uint256 _mid = (_min + _max + 1) / 2;
-            if (nftPointHistory[nftId][_mid].timestamp <= _timestamp) {
+            if (nftPointHistory[nftId][_mid].blk <= _block) {
                 _min = _mid;
             } else {
                 _max = _mid - 1;
@@ -471,16 +472,16 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
     /// @notice weight of nft (veiZi amount) at certain time after latest update of that nft
     /// @param nftId id of nft
-    /// @param timestamp specified timestamp after latest update of this nft (amount change or end change)
+    /// @param blockNumber specified blockNumber after latest update of this nft (amount change or end change)
     /// @return weight
-    function nftVeiZi(uint256 nftId, uint256 timestamp) public view returns(uint256) {
+    function nftVeiZi(uint256 nftId, uint256 blockNumber) public view returns(uint256) {
         uint256 _epoch = nftPointEpoch[nftId];
         if (_epoch == 0) {
             return 0;
         } else {
             Point memory lastPoint = nftPointHistory[nftId][_epoch];
-            require(timestamp >= lastPoint.timestamp, "Too early");
-            lastPoint.bias -= lastPoint.slope * int256(timestamp - lastPoint.timestamp);
+            require(blockNumber >= lastPoint.blk, "Too early");
+            lastPoint.bias -= lastPoint.slope * int256(blockNumber - lastPoint.blk);
             if (lastPoint.bias < 0) {
                 lastPoint.bias = 0;
             }
@@ -490,72 +491,72 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     
     /// @notice weight of nft (veiZi amount) at certain time
     /// @param nftId id of nft
-    /// @param timestamp specified timestamp after latest update of this nft (amount change or end change)
+    /// @param _block specified blockNumber
     /// @return weight
-    function nftVeiZiAt(uint256 nftId, uint256 timestamp) public view returns(uint256) {
+    function nftVeiZiAt(uint256 nftId, uint256 _block) public view returns(uint256) {
 
-        uint256 targetEpoch = _findNftTimestampEpoch(nftId, timestamp);
+        uint256 targetEpoch = _findNftBlockEpoch(nftId, _block);
         Point memory uPoint = nftPointHistory[nftId][targetEpoch];
-        if (timestamp < uPoint.timestamp) {
+        if (_block < uPoint.blk) {
             return 0;
         }
-        uPoint.bias -= uPoint.slope * (int256(timestamp) - int256(uPoint.timestamp));
+        uPoint.bias -= uPoint.slope * (int256(_block) - int256(uPoint.blk));
         if (uPoint.bias < 0) {
             uPoint.bias = 0;
         }
         return uint256(uPoint.bias);
     }
 
-    function _totalVeiZiAt(Point memory point, uint256 timestamp) internal view returns(uint256) {
+    function _totalVeiZiAt(Point memory point, uint256 blk) internal view returns(uint256) {
         Point memory lastPoint = point;
-        uint256 ti = (lastPoint.timestamp / WEEK) * WEEK;
+        uint256 ti = (lastPoint.blk / WEEK) * WEEK;
         for (uint24 i = 0; i < 255; i ++) {
             ti += WEEK;
             int256 dSlope = 0;
-            if (ti > timestamp) {
-                ti = timestamp;
+            if (ti > blk) {
+                ti = blk;
             } else {
                 dSlope = slopeChanges[ti];
             }
-            lastPoint.bias -= lastPoint.slope * int256(ti - lastPoint.timestamp);
+            lastPoint.bias -= lastPoint.slope * int256(ti - lastPoint.blk);
             if (lastPoint.bias <= 0) {
                 lastPoint.bias = 0;
                 break;
             }
-            if (ti == timestamp) {
+            if (ti == blk) {
                 break;
             }
             lastPoint.slope += dSlope;
-            lastPoint.timestamp = ti;
+            lastPoint.blk = ti;
         }
         return uint256(lastPoint.bias);
     }
 
     /// @notice total weight of all nft at a certain time after check-point of all-nft-collection's curve
-    /// @param timestamp specified blockNumber, "certain time" in above line
+    /// @param blk specified blockNumber, "certain time" in above line
     /// @return total weight
-    function totalVeiZi(uint256 timestamp) external view returns(uint256) {
+    function totalVeiZi(uint256 blk) external view returns(uint256) {
         uint256 _epoch = epoch;
         Point memory lastPoint = pointHistory[_epoch];
-        require(timestamp >= lastPoint.timestamp, "Too Early");
-        return _totalVeiZiAt(lastPoint, timestamp);
+        require(blk >= lastPoint.blk, "Too Early");
+        return _totalVeiZiAt(lastPoint, blk);
     }
 
     /// @notice total weight of all nft at a certain time
-    /// @param timestamp specified blockNumber, "certain time" in above line
+    /// @param blk specified blockNumber, "certain time" in above line
     /// @return total weight
-    function totalVeiZiAt(uint256 timestamp) external view returns(uint256) {
+    function totalVeiZiAt(uint256 blk) external view returns(uint256) {
         uint256 _epoch = epoch;
-        uint256 targetEpoch = _findTimestampEpoch(timestamp, _epoch);
+        uint256 targetEpoch = _findBlockEpoch(blk, _epoch);
 
         Point memory point = pointHistory[targetEpoch];
-        if (timestamp < point.timestamp) {
+        if (blk < point.blk) {
             return 0;
         }
         if (targetEpoch == _epoch) {
-            return _totalVeiZiAt(point, timestamp);
+            return _totalVeiZiAt(point, blk);
         } else {
-            point.bias = point.bias - point.slope * (int256(timestamp) - int256(point.timestamp));
+            point.bias = point.bias - point.slope * (int256(blk) - int256(point.blk));
             if (point.bias < 0) {
                 point.bias = 0;
             }
@@ -567,7 +568,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         StakingStatus storage t = stakingStatus[nftId];
         t.lastTouchBlock = rewardInfo.lastTouchBlock;
         t.lastTouchAccRewardPerShare = rewardInfo.accRewardPerShare;
-        t.lastVeiZi = t.lockAmount / MAXTIME * (Math.max(block.timestamp, nftLocked[nftId].end) - block.timestamp);
+        t.lastVeiZi = t.lockAmount / MAXTIME * (Math.max(block.number, nftLocked[nftId].end) - block.number);
     }
 
     /// @notice Collect pending reward for a single veizi-nft. 
@@ -604,7 +605,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
     /// @notice stake an nft
     /// @param nftId id of nft
     function stake(uint256 nftId) external nonReentrant {
-        require(nftLocked[nftId].end > block.timestamp, "Lock expired");
+        require(nftLocked[nftId].end > block.number, "Lock expired");
         // nftId starts from 1, zero or not owner(including staked) cannot be transfered
         safeTransferFrom(msg.sender, address(this), nftId);
         require(stakedNft[msg.sender] == 0, "Has Staked!");
@@ -619,7 +620,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         stakingStatus[nftId] = StakingStatus({
             stakingId: stakeNum,
             lockAmount: lockAmount,
-            lastVeiZi: lockAmount / MAXTIME * (Math.max(block.timestamp, nftLocked[nftId].end) - block.timestamp),
+            lastVeiZi: lockAmount / MAXTIME * (Math.max(block.number, nftLocked[nftId].end) - block.number),
             lastTouchBlock: rewardInfo.lastTouchBlock,
             lastTouchAccRewardPerShare: rewardInfo.accRewardPerShare
         });
@@ -655,7 +656,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         if (nftId != 0) {
             stakingId = stakingStatus[nftId].stakingId;
             amount = uint256(nftLocked[nftId].amount);
-            uint256 remainBlock = Math.max(nftLocked[nftId].end, block.timestamp) - block.timestamp;
+            uint256 remainBlock = Math.max(nftLocked[nftId].end, block.number) - block.number;
             amount = amount / MAXTIME * remainBlock;
         } else {
             stakingId = 0;
