@@ -161,7 +161,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
 
         rewardInfo = _rewardInfo;
         rewardInfo.accRewardPerShare = 0;
-        rewardInfo.lastTouchBlock = Math.max(_rewardInfo.startBlock, block.timestamp);
+        rewardInfo.lastTouchBlock = Math.max(_rewardInfo.startBlock, block.number);
 
     }
 
