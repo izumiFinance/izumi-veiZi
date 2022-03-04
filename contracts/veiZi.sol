@@ -357,8 +357,7 @@ contract veiZi is Ownable, Multicall, ReentrancyGuard, ERC721Enumerable, IERC721
         _depositFor(nftId, _value, 0, _locked, (msg.sender == ownerOf(nftId) || stakedNft[msg.sender] == nftId) ? INCREASE_LOCK_AMOUNT : DEPOSIT_FOR_TYPE);
         if (stakingStatus[nftId].stakingId != 0) {
             // this nft is staking
-            address stakingOwner = stakedNftOwners[nftId];
-            _collectReward(nftId, stakingOwner);
+            // donot collect reward
             stakeiZiAmount += _value;
             stakingStatus[nftId].lockAmount += _value;
         }

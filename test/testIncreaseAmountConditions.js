@@ -159,10 +159,10 @@ describe("test increase unlock time", function () {
         let balance = (await iZi.balanceOf(tester.address)).toString();
         await veiZi.connect(tester).stake('1');
 
-        const stakeiZiAmount = '10000000000';
-        const stakingStatus1 = await veiZi.stakingStatus('1');
-        const acc = stringDiv(stringMul(rewardPerBlock, q128), stakeiZiAmount);
-        const reward = stringDiv(stringMul(acc, stakingStatus1.lastVeiZi.toString()), q128);
+        // const stakeiZiAmount = '10000000000';
+        // const stakingStatus1 = await veiZi.stakingStatus('1');
+        // const acc = stringDiv(stringMul(rewardPerBlock, q128), stakeiZiAmount);
+        // const reward = stringDiv(stringMul(acc, stakingStatus1.lastVeiZi.toString()), q128);
 
         let ok = true;
         try {
@@ -171,8 +171,9 @@ describe("test increase unlock time", function () {
             // console.log(err);
             ok = false;
         }
+        // donot collect reward in increaseAmount()
         balance = stringMinus(balance, '5000000000');
-        balance = stringAdd(balance, reward);
+
         expect(ok).to.equal(true);
         const lock1 = await veiZi.nftLocked('1');
         expect(lock1.amount.toString()).to.equal('15000000000');
@@ -186,6 +187,7 @@ describe("test increase unlock time", function () {
     it("increase Amount of other, unstaked", async function () {
         const WEEK = Number((await veiZi.WEEK()).toString());
         let balance = (await iZi.balanceOf(tester.address)).toString();
+        let balance2 = (await iZi.balanceOf(other.address)).toString();
 
         let ok = true;
         try {
@@ -202,6 +204,7 @@ describe("test increase unlock time", function () {
         expect(lock2.amount.toString()).to.equal('25000000000');
         expect(lock2.end.toString()).to.equal(String(timestampStart + WEEK * 30));
         expect((await iZi.balanceOf(tester.address)).toString()).to.equal(stringMinus(balance, '5000000000'));
+        expect((await iZi.balanceOf(other.address)).toString()).to.equal(balance2);
     });
     it("increase Amount of other, staked", async function () {
         const WEEK = Number((await veiZi.WEEK()).toString());
@@ -229,6 +232,7 @@ describe("test increase unlock time", function () {
         expect(lock2.amount.toString()).to.equal('25000000000');
         expect(lock2.end.toString()).to.equal(String(timestampStart + WEEK * 30));
         expect((await iZi.balanceOf(tester.address)).toString()).to.equal(stringMinus(balance, '5000000000'));
-        expect((await iZi.balanceOf(other.address)).toString()).to.equal(stringAdd(balance2, reward));
+        // donot get reward in increaseAmount
+        expect((await iZi.balanceOf(other.address)).toString()).to.equal(balance2);
     });
 });
