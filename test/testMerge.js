@@ -511,4 +511,100 @@ describe("test increase unlock time", function () {
             expect(sc2).to.equal(sc2Expect);
         }
     });
+
+
+    it("at 18.9 WEEK, merge 8 to 6", async function () {
+        const fromId = 8;
+        const toId = 6;
+        const fromIdx = fromId - 1;
+        const toIdx = toId - 1;
+        const startWeek = 18.9;
+
+        const MAXTIME = (await veiZi.MAXTIME()).toString();
+        const WEEK = Number((await veiZi.WEEK()).toString());
+
+        const startTime = timestampStart + Math.round(startWeek * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
+
+        await veiZi.connect(tester).merge(fromId, toId);
+
+        locks[toIdx].amount += locks[fromIdx].amount;
+        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
+        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
+
+        locks[fromIdx].amount = 0;
+        locks[fromIdx].slope = 0;
+        locks[fromIdx].bias = 0;
+
+        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
+        const epoch = await veiZi.epoch();
+
+        const point = await veiZi.pointHistory(epoch);
+        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
+        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
+        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
+
+        for (var week = 21; week <= 35; week ++) {
+            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
+            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
+            expect(sc1).to.equal('0');
+
+            const checkTime2 = timestampStart + week * WEEK;
+            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
+            let slopeChangeValue = slopeChanges[checkTime2];
+            if (slopeChangeValue == undefined) {
+                slopeChangeValue = 0;
+            }
+            const sc2Expect = String(slopeChangeValue);
+            expect(sc2).to.equal(sc2Expect);
+        }
+    });
+
+
+    it("at 18.9 WEEK, merge 2 to 6", async function () {
+        const fromId = 2;
+        const toId = 6;
+        const fromIdx = fromId - 1;
+        const toIdx = toId - 1;
+        const startWeek = 18.9;
+
+        const MAXTIME = (await veiZi.MAXTIME()).toString();
+        const WEEK = Number((await veiZi.WEEK()).toString());
+
+        const startTime = timestampStart + Math.round(startWeek * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
+
+        await veiZi.connect(tester).merge(fromId, toId);
+
+        locks[toIdx].amount += locks[fromIdx].amount;
+        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
+        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
+
+        locks[fromIdx].amount = 0;
+        locks[fromIdx].slope = 0;
+        locks[fromIdx].bias = 0;
+
+        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
+        const epoch = await veiZi.epoch();
+
+        const point = await veiZi.pointHistory(epoch);
+        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
+        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
+        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
+
+        for (var week = 21; week <= 35; week ++) {
+            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
+            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
+            expect(sc1).to.equal('0');
+
+            const checkTime2 = timestampStart + week * WEEK;
+            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
+            let slopeChangeValue = slopeChanges[checkTime2];
+            if (slopeChangeValue == undefined) {
+                slopeChangeValue = 0;
+            }
+            const sc2Expect = String(slopeChangeValue);
+            expect(sc2).to.equal(sc2Expect);
+        }
+    });
 });
