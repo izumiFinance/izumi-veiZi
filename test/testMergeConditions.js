@@ -238,4 +238,19 @@ describe("test increase unlock time", function () {
         expect(lock2.end.toString()).to.equal(String(timestampStart + WEEK * 30));
     });
 
+    it("merge 3 to 3", async function () {
+        const WEEK = Number((await veiZi.WEEK()).toString());
+        await veiZi.connect(tester).stake('3');
+        let ok = true;
+        try {
+            await veiZi.connect(tester).merge('3', '3');
+        } catch(err) {
+            // console.log(err);
+            ok = false;
+        }
+        expect(ok).to.equal(false);
+        const lock2 = await veiZi.nftLocked('3');
+        expect(lock2.amount.toString()).to.equal('280000000');
+        expect(lock2.end.toString()).to.equal(String(timestampStart + WEEK * 30));
+    });
 });
