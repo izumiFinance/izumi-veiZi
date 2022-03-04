@@ -130,16 +130,16 @@ const abi = [
       "inputs": [
         {
           "internalType": "uint256",
-          "name": "nftFrom",
+          "name": "nftId",
           "type": "uint256"
         },
         {
           "internalType": "uint256",
-          "name": "nftTo",
+          "name": "_value",
           "type": "uint256"
         }
       ],
-      "name": "merge",
+      "name": "increaseAmount",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -151,12 +151,12 @@ function getNewLockCalling(amount, endTime, veiZiAddress) {
     return veiZi.methods.createLock(amount, endTime).encodeABI();
 }
 
-function getMergeCalling(nftFrom, nftTo, veiZiAddress) {
+function getIncreaseAmountCalling(nftId, amount, veiZiAddress) {
     const veiZi = new web3.eth.Contract(abi, veiZiAddress);
-    return veiZi.methods.merge(nftFrom, nftTo).encodeABI();
+    return veiZi.methods.increaseAmount(nftId, amount).encodeABI();
 }
 
-describe("test increase merge", function () {
+describe("test increase amount", function () {
 
     var signer, tester;
     var iZi;
@@ -244,7 +244,10 @@ describe("test increase merge", function () {
 
     });
     
-    it("at 20 WEEK, create a new lock, merge 7 to 2", async function () {
+    it("at 20 WEEK, create a new lock, increase amount of 3", async function () {
+
+        const nftId = 3;
+        const amount = '5000000000000'
 
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
@@ -260,18 +263,19 @@ describe("test increase merge", function () {
 
         const callings = [
             getNewLockCalling(locks[8].amount, locks[8].endTime),
-            getMergeCalling(7, 2, veiZi.address)
+            getIncreaseAmountCalling(nftId, amount, veiZi.address)
         ];
         balance = stringMinus(balance, locks[8].amount);
+        balance = stringMinus(balance, amount);
         await veiZi.connect(tester).multicall(callings);
 
-        locks[1].amount += locks[6].amount;
-        locks[1].slope = Number(stringDiv(String(locks[1].amount), MAXTIME));
-        locks[1].bias = locks[1].slope * (locks[1].endTime - locks[1].startTime);
+        locks[nftId - 1].amount += Number(amount);
+        locks[nftId - 1].slope = Number(stringDiv(String(locks[nftId - 1].amount), MAXTIME));
+        locks[nftId - 1].bias = locks[nftId - 1].slope * (locks[nftId - 1].endTime - locks[nftId - 1].startTime);
 
-        locks[6].amount = 0;
-        locks[6].slope = 0;
-        locks[6].bias = 0;
+        const lock1 = await veiZi.nftLocked(nftId);
+        expect(lock1.amount.toString()).to.equal(String(locks[nftId - 1].amount));
+        expect(lock1.end.toString()).to.equal(String(locks[nftId - 1].endTime));
 
         const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
         const epoch = await veiZi.epoch();
@@ -298,126 +302,10 @@ describe("test increase merge", function () {
         expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
-    it("at 20 WEEK, create a new lock, merge 4 to 1", async function () {
+    it("at 20 WEEK, create a new lock, increase amount of 9", async function () {
 
-        const MAXTIME = (await veiZi.MAXTIME()).toString();
-        const WEEK = Number((await veiZi.WEEK()).toString());
-
-        let balance = (await iZi.balanceOf(tester.address)).toString();
-
-        locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
-        locks[8].startTime += timestampStart;
-        locks[8].endTime += timestampStart;
-
-
-        const startTime = timestampStart + Math.round(20 * WEEK);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
-
-        const callings = [
-            getNewLockCalling(locks[8].amount, locks[8].endTime),
-            getMergeCalling(4, 1, veiZi.address)
-        ];
-        balance = stringMinus(balance, locks[8].amount);
-        await veiZi.connect(tester).multicall(callings);
-
-        locks[0].amount += locks[3].amount;
-        locks[0].slope = Number(stringDiv(String(locks[0].amount), MAXTIME));
-        locks[0].bias = locks[0].slope * (locks[0].endTime - locks[0].startTime);
-
-        locks[3].amount = 0;
-        locks[3].slope = 0;
-        locks[3].bias = 0;
-
-        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
-        const epoch = await veiZi.epoch();
-
-        const point = await veiZi.pointHistory(epoch);
-        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
-        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
-        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
-
-        for (var week = 21; week <= 35; week ++) {
-            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
-            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
-            expect(sc1).to.equal('0');
-
-            const checkTime2 = timestampStart + week * WEEK;
-            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
-            let slopeChangeValue = slopeChanges[checkTime2];
-            if (slopeChangeValue == undefined) {
-                slopeChangeValue = 0;
-            }
-            const sc2Expect = String(slopeChangeValue);
-            expect(sc2).to.equal(sc2Expect);
-        }
-        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
-    });
-
-
-    it("at 20 WEEK, create a new lock, merge 7 to 6", async function () {
-        const fromId = 7;
-        const toId = 6;
-        const fromIdx = fromId - 1;
-        const toIdx = toId - 1;
-
-        const MAXTIME = (await veiZi.MAXTIME()).toString();
-        const WEEK = Number((await veiZi.WEEK()).toString());
-
-        let balance = (await iZi.balanceOf(tester.address)).toString();
-
-        locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
-        locks[8].startTime += timestampStart;
-        locks[8].endTime += timestampStart;
-
-
-        const startTime = timestampStart + Math.round(20 * WEEK);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
-
-        const callings = [
-            getNewLockCalling(locks[8].amount, locks[8].endTime),
-            getMergeCalling(fromId, toId, veiZi.address)
-        ];
-        balance = stringMinus(balance, locks[8].amount);
-        await veiZi.connect(tester).multicall(callings);
-
-        locks[toIdx].amount += locks[fromIdx].amount;
-        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
-        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
-
-        locks[fromIdx].amount = 0;
-        locks[fromIdx].slope = 0;
-        locks[fromIdx].bias = 0;
-
-        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
-        const epoch = await veiZi.epoch();
-
-        const point = await veiZi.pointHistory(epoch);
-        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
-        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
-        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
-
-        for (var week = 21; week <= 35; week ++) {
-            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
-            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
-            expect(sc1).to.equal('0');
-
-            const checkTime2 = timestampStart + week * WEEK;
-            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
-            let slopeChangeValue = slopeChanges[checkTime2];
-            if (slopeChangeValue == undefined) {
-                slopeChangeValue = 0;
-            }
-            const sc2Expect = String(slopeChangeValue);
-            expect(sc2).to.equal(sc2Expect);
-        }
-        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
-    });
-
-    it("at 20 WEEK, create a new lock, merge 7 to 9", async function () {
-        const fromId = 7;
-        const toId = 9;
-        const fromIdx = fromId - 1;
-        const toIdx = toId - 1;
+        const nftId = 9;
+        const amount = '5000000000000'
 
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
@@ -433,18 +321,19 @@ describe("test increase merge", function () {
 
         const callings = [
             getNewLockCalling(locks[8].amount, locks[8].endTime),
-            getMergeCalling(fromId, toId, veiZi.address)
+            getIncreaseAmountCalling(nftId, amount, veiZi.address)
         ];
         balance = stringMinus(balance, locks[8].amount);
+        balance = stringMinus(balance, amount);
         await veiZi.connect(tester).multicall(callings);
 
-        locks[toIdx].amount += locks[fromIdx].amount;
-        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
-        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
+        locks[nftId - 1].amount += Number(amount);
+        locks[nftId - 1].slope = Number(stringDiv(String(locks[nftId - 1].amount), MAXTIME));
+        locks[nftId - 1].bias = locks[nftId - 1].slope * (locks[nftId - 1].endTime - locks[nftId - 1].startTime);
 
-        locks[fromIdx].amount = 0;
-        locks[fromIdx].slope = 0;
-        locks[fromIdx].bias = 0;
+        const lock1 = await veiZi.nftLocked(nftId);
+        expect(lock1.amount.toString()).to.equal(String(locks[nftId - 1].amount));
+        expect(lock1.end.toString()).to.equal(String(locks[nftId - 1].endTime));
 
         const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
         const epoch = await veiZi.epoch();
@@ -471,11 +360,10 @@ describe("test increase merge", function () {
         expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
-    it("at 20 WEEK, create a new lock, merge 8 to 6", async function () {
-        const fromId = 8;
-        const toId = 6;
-        const fromIdx = fromId - 1;
-        const toIdx = toId - 1;
+    it("at 20.5 WEEK, create a new lock, increase amount of 9", async function () {
+
+        const nftId = 9;
+        const amount = '5000000000000'
 
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
@@ -486,123 +374,24 @@ describe("test increase merge", function () {
         locks[8].endTime += timestampStart;
 
 
-        const startTime = timestampStart + Math.round(20 * WEEK);
+        const startTime = timestampStart + Math.round(20.5 * WEEK);
         await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
 
         const callings = [
             getNewLockCalling(locks[8].amount, locks[8].endTime),
-            getMergeCalling(fromId, toId, veiZi.address)
+            getIncreaseAmountCalling(nftId, amount, veiZi.address)
         ];
         balance = stringMinus(balance, locks[8].amount);
+        balance = stringMinus(balance, amount);
         await veiZi.connect(tester).multicall(callings);
 
-        locks[toIdx].amount += locks[fromIdx].amount;
-        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
-        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
+        locks[nftId - 1].amount += Number(amount);
+        locks[nftId - 1].slope = Number(stringDiv(String(locks[nftId - 1].amount), MAXTIME));
+        locks[nftId - 1].bias = locks[nftId - 1].slope * (locks[nftId - 1].endTime - locks[nftId - 1].startTime);
 
-        locks[fromIdx].amount = 0;
-        locks[fromIdx].slope = 0;
-        locks[fromIdx].bias = 0;
-
-        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
-        const epoch = await veiZi.epoch();
-
-        const point = await veiZi.pointHistory(epoch);
-        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
-        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
-        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
-
-        for (var week = 21; week <= 35; week ++) {
-            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
-            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
-            expect(sc1).to.equal('0');
-
-            const checkTime2 = timestampStart + week * WEEK;
-            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
-            let slopeChangeValue = slopeChanges[checkTime2];
-            if (slopeChangeValue == undefined) {
-                slopeChangeValue = 0;
-            }
-            const sc2Expect = String(slopeChangeValue);
-            expect(sc2).to.equal(sc2Expect);
-        }
-        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
-    });
-
-
-    it("at 18.9 WEEK, merge 8 to 6", async function () {
-        const fromId = 8;
-        const toId = 6;
-        const fromIdx = fromId - 1;
-        const toIdx = toId - 1;
-        const startWeek = 18.9;
-
-        const MAXTIME = (await veiZi.MAXTIME()).toString();
-        const WEEK = Number((await veiZi.WEEK()).toString());
-
-        const startTime = timestampStart + Math.round(startWeek * WEEK);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
-
-        const balance = (await iZi.balanceOf(tester.address)).toString();
-        await veiZi.connect(tester).merge(fromId, toId);
-
-        locks[toIdx].amount += locks[fromIdx].amount;
-        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
-        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
-
-        locks[fromIdx].amount = 0;
-        locks[fromIdx].slope = 0;
-        locks[fromIdx].bias = 0;
-
-        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
-        const epoch = await veiZi.epoch();
-
-        const point = await veiZi.pointHistory(epoch);
-        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
-        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
-        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
-
-        for (var week = 21; week <= 35; week ++) {
-            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
-            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
-            expect(sc1).to.equal('0');
-
-            const checkTime2 = timestampStart + week * WEEK;
-            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
-            let slopeChangeValue = slopeChanges[checkTime2];
-            if (slopeChangeValue == undefined) {
-                slopeChangeValue = 0;
-            }
-            const sc2Expect = String(slopeChangeValue);
-            expect(sc2).to.equal(sc2Expect);
-        }
-        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
-    });
-
-
-    it("at 18.9 WEEK, merge 2 to 6", async function () {
-        const fromId = 2;
-        const toId = 6;
-        const fromIdx = fromId - 1;
-        const toIdx = toId - 1;
-        const startWeek = 18.9;
-
-        const balance = (await iZi.balanceOf(tester.address)).toString();
-        const MAXTIME = (await veiZi.MAXTIME()).toString();
-        const WEEK = Number((await veiZi.WEEK()).toString());
-
-        const startTime = timestampStart + Math.round(startWeek * WEEK);
-        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
-
-        await veiZi.connect(tester).merge(fromId, toId);
-
-        locks[toIdx].amount += locks[fromIdx].amount;
-        locks[toIdx].slope = Number(stringDiv(String(locks[toIdx].amount), MAXTIME));
-        locks[toIdx].bias = locks[toIdx].slope * (locks[toIdx].endTime - locks[toIdx].startTime);
-
-        locks[fromIdx].amount = 0;
-        locks[fromIdx].slope = 0;
-        locks[fromIdx].bias = 0;
+        const lock1 = await veiZi.nftLocked(nftId);
+        expect(lock1.amount.toString()).to.equal(String(locks[nftId - 1].amount));
+        expect(lock1.end.toString()).to.equal(String(locks[nftId - 1].endTime));
 
         const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
         const epoch = await veiZi.epoch();
