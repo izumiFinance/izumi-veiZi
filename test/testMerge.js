@@ -249,6 +249,7 @@ describe("test increase unlock time", function () {
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
 
+        let balance = (await iZi.balanceOf(tester.address)).toString();
         locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
         locks[8].startTime += timestampStart;
         locks[8].endTime += timestampStart;
@@ -261,6 +262,7 @@ describe("test increase unlock time", function () {
             getNewLockCalling(locks[8].amount, locks[8].endTime),
             getMergeCalling(7, 2, veiZi.address)
         ];
+        balance = stringMinus(balance, locks[8].amount);
         await veiZi.connect(tester).multicall(callings);
 
         locks[1].amount += locks[6].amount;
@@ -293,12 +295,15 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
     it("at 20 WEEK, create a new lock, merge 4 to 1", async function () {
 
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
+
+        let balance = (await iZi.balanceOf(tester.address)).toString();
 
         locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
         locks[8].startTime += timestampStart;
@@ -312,6 +317,7 @@ describe("test increase unlock time", function () {
             getNewLockCalling(locks[8].amount, locks[8].endTime),
             getMergeCalling(4, 1, veiZi.address)
         ];
+        balance = stringMinus(balance, locks[8].amount);
         await veiZi.connect(tester).multicall(callings);
 
         locks[0].amount += locks[3].amount;
@@ -344,6 +350,7 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
 
@@ -356,6 +363,8 @@ describe("test increase unlock time", function () {
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
 
+        let balance = (await iZi.balanceOf(tester.address)).toString();
+
         locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
         locks[8].startTime += timestampStart;
         locks[8].endTime += timestampStart;
@@ -368,6 +377,7 @@ describe("test increase unlock time", function () {
             getNewLockCalling(locks[8].amount, locks[8].endTime),
             getMergeCalling(fromId, toId, veiZi.address)
         ];
+        balance = stringMinus(balance, locks[8].amount);
         await veiZi.connect(tester).multicall(callings);
 
         locks[toIdx].amount += locks[fromIdx].amount;
@@ -400,6 +410,7 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
     it("at 20 WEEK, create a new lock, merge 7 to 9", async function () {
@@ -411,6 +422,7 @@ describe("test increase unlock time", function () {
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
 
+        let balance = (await iZi.balanceOf(tester.address)).toString();
         locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
         locks[8].startTime += timestampStart;
         locks[8].endTime += timestampStart;
@@ -423,6 +435,7 @@ describe("test increase unlock time", function () {
             getNewLockCalling(locks[8].amount, locks[8].endTime),
             getMergeCalling(fromId, toId, veiZi.address)
         ];
+        balance = stringMinus(balance, locks[8].amount);
         await veiZi.connect(tester).multicall(callings);
 
         locks[toIdx].amount += locks[fromIdx].amount;
@@ -455,6 +468,7 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
     it("at 20 WEEK, create a new lock, merge 8 to 6", async function () {
@@ -466,6 +480,7 @@ describe("test increase unlock time", function () {
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
 
+        let balance = (await iZi.balanceOf(tester.address)).toString();
         locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
         locks[8].startTime += timestampStart;
         locks[8].endTime += timestampStart;
@@ -478,6 +493,7 @@ describe("test increase unlock time", function () {
             getNewLockCalling(locks[8].amount, locks[8].endTime),
             getMergeCalling(fromId, toId, veiZi.address)
         ];
+        balance = stringMinus(balance, locks[8].amount);
         await veiZi.connect(tester).multicall(callings);
 
         locks[toIdx].amount += locks[fromIdx].amount;
@@ -510,6 +526,7 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
 
@@ -526,6 +543,7 @@ describe("test increase unlock time", function () {
         const startTime = timestampStart + Math.round(startWeek * WEEK);
         await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
 
+        const balance = (await iZi.balanceOf(tester.address)).toString();
         await veiZi.connect(tester).merge(fromId, toId);
 
         locks[toIdx].amount += locks[fromIdx].amount;
@@ -558,6 +576,7 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
 
@@ -568,6 +587,7 @@ describe("test increase unlock time", function () {
         const toIdx = toId - 1;
         const startWeek = 18.9;
 
+        const balance = (await iZi.balanceOf(tester.address)).toString();
         const MAXTIME = (await veiZi.MAXTIME()).toString();
         const WEEK = Number((await veiZi.WEEK()).toString());
 
@@ -606,5 +626,6 @@ describe("test increase unlock time", function () {
             const sc2Expect = String(slopeChangeValue);
             expect(sc2).to.equal(sc2Expect);
         }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 });

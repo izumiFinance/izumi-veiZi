@@ -115,6 +115,8 @@ describe("test uniswap price oracle", function () {
             timestampStart = timestampStart - timestampStart % WEEK + WEEK;
         }
 
+        let iZiBalance = (await iZi.balanceOf(tester.address)).toString();
+
         
         // lock1
         const startTime1 = timestampStart + WEEK + Math.round(WEEK / 7);
@@ -135,6 +137,9 @@ describe("test uniswap price oracle", function () {
         expect(point1.slope).to.equal(segment1.slope);
         expect(point1.timestamp).to.equal(startTime1);
 
+        iZiBalance = stringMinus(iZiBalance, iZiAmount1);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
+
         const currentPoint = {...segment1};
 
         // lock2
@@ -153,6 +158,8 @@ describe("test uniswap price oracle", function () {
         expect(point2.bias).to.equal(currentPoint.bias);
         expect(point2.slope).to.equal(currentPoint.slope);
         expect(point2.timestamp).to.equal(startTime2);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount2);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock3
         const startTime3 = timestampStart + WEEK * 6 + Math.round(WEEK / 7 * 3);
@@ -170,6 +177,8 @@ describe("test uniswap price oracle", function () {
         expect(point3.bias).to.equal(currentPoint.bias);
         expect(point3.slope).to.equal(currentPoint.slope);
         expect(point3.timestamp).to.equal(startTime3);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount3);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // console.log('bias at 3: ', currentPoint.bias);
 
@@ -189,6 +198,8 @@ describe("test uniswap price oracle", function () {
         expect(point4.bias).to.equal(currentPoint.bias);
         expect(point4.slope).to.equal(currentPoint.slope);
         expect(point4.timestamp).to.equal(startTime4);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount4);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock5
         const startTime5 = timestampStart + WEEK * 8 + Math.round(WEEK / 7 * 3);
@@ -206,6 +217,8 @@ describe("test uniswap price oracle", function () {
         expect(point5.bias).to.equal(currentPoint.bias);
         expect(point5.slope).to.equal(currentPoint.slope);
         expect(point5.timestamp).to.equal(startTime5);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount5);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
 
         // lock6
@@ -224,6 +237,8 @@ describe("test uniswap price oracle", function () {
         expect(point6.bias).to.equal(currentPoint.bias);
         expect(point6.slope).to.equal(currentPoint.slope);
         expect(point6.timestamp).to.equal(startTime6);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount6);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock7
         const startTime7 = timestampStart + WEEK * 8 + Math.round(WEEK / 7 * 5);
@@ -241,6 +256,8 @@ describe("test uniswap price oracle", function () {
         expect(point7.bias).to.equal(currentPoint.bias);
         expect(point7.slope).to.equal(currentPoint.slope);
         expect(point7.timestamp).to.equal(startTime7);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount7);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock8
         const startTime8 = timestampStart + WEEK * 8 + Math.round(WEEK / 7 * 6);
@@ -258,6 +275,8 @@ describe("test uniswap price oracle", function () {
         expect(point8.bias).to.equal(currentPoint.bias);
         expect(point8.slope).to.equal(currentPoint.slope);
         expect(point8.timestamp).to.equal(startTime8);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount8);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock9
         const startTime9 = timestampStart + WEEK * 10;
@@ -277,6 +296,8 @@ describe("test uniswap price oracle", function () {
         expect(point9.bias).to.equal(currentPoint.bias);
         expect(point9.slope).to.equal(currentPoint.slope);
         expect(point9.timestamp).to.equal(startTime9);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount9);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock10
         const startTime10 = timestampStart + WEEK * 10 + Math.round(WEEK / 7 * 2);
@@ -294,6 +315,8 @@ describe("test uniswap price oracle", function () {
         expect(point10.bias).to.equal(currentPoint.bias);
         expect(point10.slope).to.equal(currentPoint.slope);
         expect(point10.timestamp).to.equal(startTime10);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount10);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock11
         const startTime11 = timestampStart + WEEK * 10 + Math.round(WEEK / 7 * 3);
@@ -311,6 +334,8 @@ describe("test uniswap price oracle", function () {
         expect(point11.bias).to.equal(currentPoint.bias);
         expect(point11.slope).to.equal(currentPoint.slope);
         expect(point11.timestamp).to.equal(startTime11);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount11);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // check point
         let checkPoint = timestampStart + WEEK * 11;
@@ -345,6 +370,8 @@ describe("test uniswap price oracle", function () {
         expect(point12.bias).to.equal(currentPoint.bias);
         expect(point12.slope).to.equal(currentPoint.slope);
         expect(point12.timestamp).to.equal(startTime12);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount12);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
         // lock13
         const startTime13 = timestampStart + WEEK * 11 + Math.round(WEEK / 7 * 2);
@@ -363,6 +390,8 @@ describe("test uniswap price oracle", function () {
         expect(point13.bias).to.equal(currentPoint.bias);
         expect(point13.slope).to.equal(currentPoint.slope);
         expect(point13.timestamp).to.equal(startTime13);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount13);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
 
         // lock14
@@ -382,6 +411,8 @@ describe("test uniswap price oracle", function () {
         expect(point14.bias).to.equal(currentPoint.bias);
         expect(point14.slope).to.equal(currentPoint.slope);
         expect(point14.timestamp).to.equal(startTime14);
+        iZiBalance = stringMinus(iZiBalance, iZiAmount14);
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(iZiBalance);
 
 
         // check point
