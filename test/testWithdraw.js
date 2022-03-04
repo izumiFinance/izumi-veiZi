@@ -17,11 +17,149 @@ function decimalToUnDecimalStr(num) {
     return new BigNumber(num).times(10 ** 18).toFixed(0);
 }
 
-describe("test uniswap price oracle", function () {
+function stringDiv(a, b) {
+    let an = new BigNumber(a);
+    an = an.minus(an.mod(b));
+    return an.div(b).toFixed(0, 3);
+}
+
+function stringMul(a, b) {
+    let an = new BigNumber(a);
+    an = an.times(b);
+    return an.toFixed(0, 3);
+}
+
+function stringMinus(a, b) {
+    let an = new BigNumber(a);
+    an = an.minus(b);
+    return an.toFixed(0, 3);
+}
+
+function stringAdd(a, b) {
+    let an = new BigNumber(a);
+    an = an.plus(b);
+    return an.toFixed(0, 3);
+}
+
+function getBiasAndSlopeStr(amount, lockTime, MAXTIME) {
+    const slope = stringDiv(amount, MAXTIME);
+    const bias = stringMul(slope, lockTime);
+    return {slope, bias};
+}
+
+function getBiasAndSlope(amount, lockTime, MAXTIME) {
+    return getBiasAndSlopeStr(String(amount), String(lockTime), String(MAXTIME));
+}
+
+async function getNftLocked(veiZi, nftId) {
+    const nftLocked = await veiZi.nftLocked(nftId);
+    return {amount: Number(nftLocked.amount.toString()), end: Number(nftLocked.end.toString())};
+}
+
+async function getPoint(veiZi, epoch) {
+    const point = await veiZi.pointHistory(epoch);
+    return {bias: point.bias.toString(), slope: point.slope.toString(), timestamp: Number(point.timestamp.toString())};
+}
+
+async function waitUntilJustBefore(destBlockNumber) {
+    let currentBlockNumber = await ethers.provider.getBlockNumber();
+    while (currentBlockNumber < destBlockNumber - 1) {
+        await ethers.provider.send('evm_mine');
+        currentBlockNumber = await ethers.provider.getBlockNumber();
+    }
+    return currentBlockNumber;
+}
+
+function getLockData(slope, MAXTIME, startTime, endTime) {
+    const amount = slope * MAXTIME;
+    const bias = slope * (endTime - startTime);
+    return {
+        slope,
+        amount,
+        bias,
+        startTime,
+        endTime,
+    };
+}
+
+function getLastPointAndSlopeChanges(locks, timestamp) {
+    let bias = 0;
+    let slope = 0;
+    const slopeChanges = {};
+    for (const lock of locks) {
+        // it is assumed that lock.startTime <= timestamp
+        if (lock.endTime > timestamp) {
+            bias = bias + lock.bias - (timestamp - lock.startTime) * lock.slope
+            slope = slope + lock.slope;
+            if (slopeChanges[lock.endTime] == undefined) {
+                slopeChanges[lock.endTime] = -lock.slope;
+            } else {
+                slopeChanges[lock.endTime] -= lock.slope;
+            }
+        }
+    }
+    return {bias, slope, slopeChanges};
+}
+
+const abi = [
+    {
+        "inputs": [
+            {
+            "internalType": "uint256",
+            "name": "_value",
+            "type": "uint256"
+            },
+            {
+            "internalType": "uint256",
+            "name": "_unlockTime",
+            "type": "uint256"
+            }
+        ],
+        "name": "createLock",
+        "outputs": [
+            {
+            "internalType": "uint256",
+            "name": "nftId",
+            "type": "uint256"
+            }
+        ],
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "nftId",
+          "type": "uint256"
+        }
+      ],
+      "name": "withdraw",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+];
+
+function getNewLockCalling(amount, endTime, veiZiAddress) {
+    const veiZi = new web3.eth.Contract(abi, veiZiAddress);
+    return veiZi.methods.createLock(amount, endTime).encodeABI();
+}
+
+function getWithdrawCalling(nftId, amount, veiZiAddress) {
+    const veiZi = new web3.eth.Contract(abi, veiZiAddress);
+    return veiZi.methods.withdraw(nftId).encodeABI();
+}
+
+describe("test increase amount", function () {
 
     var signer, tester;
     var iZi;
     var veiZi;
+
+    var locks;
+
+    var timestampStart;
 
     beforeEach(async function() {
       
@@ -42,66 +180,224 @@ describe("test uniswap price oracle", function () {
             endBlock: 1000
         });
 
-        await iZi.connect(tester).approve(veiZi.address, decimalToUnDecimalStr(100000000));
-        await iZi.mint(tester.address, decimalToUnDecimalStr(100000000));
-        
-    });
-    
-    it("merge", async function () {
+        await iZi.connect(tester).approve(veiZi.address, '100000000000000000000');
+        await iZi.mint(tester.address, '100000000000000000000');
+
         const MAXTIME = Number((await veiZi.MAXTIME()).toString());
         const WEEK = Number((await veiZi.WEEK()).toString());
-        console.log('max time: ', MAXTIME);
-        console.log('week time: ', WEEK);
+
+        locks = [
+            getLockData(20, MAXTIME, Math.round(1.1 * WEEK), 20 * WEEK),
+            getLockData(6, MAXTIME, Math.round(1.1 * WEEK), 17 * WEEK),
+            getLockData(15, MAXTIME, Math.round(1.1 * WEEK), 25 * WEEK),
+
+            getLockData(5, MAXTIME, Math.round(2.3 * WEEK), 20 * WEEK),
+            getLockData(21, MAXTIME, Math.round(2.3 * WEEK), 16 * WEEK),
+
+            getLockData(36, MAXTIME, Math.round(5.6 * WEEK), 25 * WEEK),
+            getLockData(12, MAXTIME, Math.round(5.6 * WEEK), 16 * WEEK),
+            getLockData(16, MAXTIME, Math.round(5.6 * WEEK), 21 * WEEK),
+        ]
+
         const blockNumStart = await ethers.provider.getBlockNumber();
         const blockStart = await ethers.provider.getBlock(blockNumStart);
-        let timestampStart = blockStart.timestamp;
+        timestampStart = blockStart.timestamp;
         if (timestampStart % WEEK !== 0) {
             timestampStart = timestampStart - timestampStart % WEEK + WEEK;
         }
+
+        for (const lock of locks) {
+            lock.endTime += timestampStart;
+            lock.startTime += timestampStart;
+        }
         
-        const unlockTime1 = timestampStart + Math.floor(WEEK * 15);
-        const iZiAmount1 = decimalToUnDecimalStr(1000);
-        await veiZi.connect(tester).createLock(iZiAmount1, unlockTime1);
+        const startTime1 = timestampStart + Math.round(1.1 * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime1]); 
+        const createLockCallings1 = [
+            getNewLockCalling(locks[0].amount, locks[0].endTime),
+            getNewLockCalling(locks[1].amount, locks[1].endTime),
+            getNewLockCalling(locks[2].amount, locks[2].endTime),
+        ];
+        await veiZi.connect(tester).multicall(createLockCallings1);
 
-        const unlockTime2 = timestampStart + Math.floor(WEEK * 30);
-        const iZiAmount2 = decimalToUnDecimalStr(600);
-        await veiZi.connect(tester).createLock(iZiAmount2, unlockTime2)
+        const startTime2 = timestampStart + Math.round(2.3 * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime2]);
+        const createLockCallings2 = [
+            getNewLockCalling(locks[3].amount, locks[3].endTime),
+            getNewLockCalling(locks[4].amount, locks[4].endTime),
+        ];
+        await veiZi.connect(tester).multicall(createLockCallings2);
 
-        const unlockTime3 = timestampStart + Math.floor(WEEK * 20);
-        const iZiAmount3 = decimalToUnDecimalStr(1500);
-        await veiZi.connect(tester).createLock(iZiAmount3, unlockTime3);
+        const startTime3 = timestampStart + Math.round(5.6 * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime3]);
+        const createLockCallings3 = [
+            getNewLockCalling(locks[5].amount, locks[5].endTime),
+            getNewLockCalling(locks[6].amount, locks[6].endTime),
+            getNewLockCalling(locks[7].amount, locks[7].endTime),
+        ];
+        await veiZi.connect(tester).multicall(createLockCallings3);
 
-        const unlockTime4 = timestampStart + Math.floor(WEEK * 3);
-        const iZiAmount4 = decimalToUnDecimalStr(800);
-        await veiZi.connect(tester).createLock(iZiAmount4, unlockTime4);
+    });
+    
+    it("at 20 WEEK, create a new lock, withdraw 1", async function () {
 
-        const unlockTime5 = timestampStart + Math.floor(WEEK * 2);
-        const iZiAmount5 = decimalToUnDecimalStr(1000);
-        await veiZi.connect(tester).createLock(iZiAmount5, unlockTime5);
+        const nftId = 1;
 
-        const totalVeiZi1 = (await veiZi.totalVeiZi(timestampStart + Math.floor(WEEK * 1.9))).toString();
+        const MAXTIME = (await veiZi.MAXTIME()).toString();
+        const WEEK = Number((await veiZi.WEEK()).toString());
 
-        console.log('total veizi: ', totalVeiZi1);
+        let balance = (await iZi.balanceOf(tester.address)).toString();
+        locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
+        locks[8].startTime += timestampStart;
+        locks[8].endTime += timestampStart;
 
-        const nft5 = await veiZi.nftLocked('5');
-        const nft4 = await veiZi.nftLocked('4');
-        console.log('nft5: ', nft5);
-        console.log('nft4: ', nft4);
 
-        await ethers.provider.send('evm_setNextBlockTimestamp', [unlockTime4]); 
-        
-        const balanceBeforeWithdraw5 = await iZi.balanceOf(tester.address);
-        console.log('beforeWithdraw5: ', balanceBeforeWithdraw5.toString());
-        await veiZi.connect(tester).withdraw(5);
-        const balanceAfterWithdraw5 = await iZi.balanceOf(tester.address);
-        console.log('beforeWithdraw4: ', balanceAfterWithdraw5.toString());
+        const startTime = timestampStart + Math.round(20 * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
 
-        await veiZi.connect(tester).withdraw(4);
-        const balanceAfterWithdraw4 = await iZi.balanceOf(tester.address);
+        const callings = [
+            getNewLockCalling(locks[8].amount, locks[8].endTime),
+            getWithdrawCalling(nftId, veiZi.address)
+        ];
+        balance = stringMinus(balance, locks[8].amount);
+        balance = stringAdd(balance, String(locks[nftId - 1].amount));
+        await veiZi.connect(tester).multicall(callings);
 
-        console.log('afterWithdraw4: ', balanceAfterWithdraw4.toString());
+        locks[nftId - 1].amount = 0;
+        locks[nftId - 1].slope = 0;
+        locks[nftId - 1].bias = 0;
 
-        
+        const lock1 = await veiZi.nftLocked(nftId);
+        expect(lock1.amount.toString()).to.equal(String(locks[nftId - 1].amount));
+        expect(lock1.end.toString()).to.equal('0');
+
+        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
+        const epoch = await veiZi.epoch();
+
+        const point = await veiZi.pointHistory(epoch);
+        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
+        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
+        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
+
+        for (var week = 21; week <= 35; week ++) {
+            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
+            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
+            expect(sc1).to.equal('0');
+
+            const checkTime2 = timestampStart + week * WEEK;
+            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
+            let slopeChangeValue = slopeChanges[checkTime2];
+            if (slopeChangeValue == undefined) {
+                slopeChangeValue = 0;
+            }
+            const sc2Expect = String(slopeChangeValue);
+            expect(sc2).to.equal(sc2Expect);
+        }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
     });
 
+    it("at 20 WEEK, create a new lock, withdraw 2", async function () {
+
+        const nftId = 2;
+
+        const MAXTIME = (await veiZi.MAXTIME()).toString();
+        const WEEK = Number((await veiZi.WEEK()).toString());
+
+        let balance = (await iZi.balanceOf(tester.address)).toString();
+        locks.push(getLockData(7, MAXTIME, Math.round(20 * WEEK), 30 * WEEK));
+        locks[8].startTime += timestampStart;
+        locks[8].endTime += timestampStart;
+
+
+        const startTime = timestampStart + Math.round(20 * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
+
+        const callings = [
+            getNewLockCalling(locks[8].amount, locks[8].endTime),
+            getWithdrawCalling(nftId, veiZi.address)
+        ];
+        balance = stringMinus(balance, locks[8].amount);
+        balance = stringAdd(balance, String(locks[nftId - 1].amount));
+        await veiZi.connect(tester).multicall(callings);
+
+        locks[nftId - 1].amount = 0;
+        locks[nftId - 1].slope = 0;
+        locks[nftId - 1].bias = 0;
+
+        const lock1 = await veiZi.nftLocked(nftId);
+        expect(lock1.amount.toString()).to.equal(String(locks[nftId - 1].amount));
+        expect(lock1.end.toString()).to.equal('0');
+
+        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
+        const epoch = await veiZi.epoch();
+
+        const point = await veiZi.pointHistory(epoch);
+        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
+        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
+        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
+
+        for (var week = 21; week <= 35; week ++) {
+            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
+            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
+            expect(sc1).to.equal('0');
+
+            const checkTime2 = timestampStart + week * WEEK;
+            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
+            let slopeChangeValue = slopeChanges[checkTime2];
+            if (slopeChangeValue == undefined) {
+                slopeChangeValue = 0;
+            }
+            const sc2Expect = String(slopeChangeValue);
+            expect(sc2).to.equal(sc2Expect);
+        }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
+    });
+
+    it("at 20.5 WEEK withdraw 7", async function () {
+
+        const nftId = 7;
+
+        const MAXTIME = (await veiZi.MAXTIME()).toString();
+        const WEEK = Number((await veiZi.WEEK()).toString());
+
+        let balance = (await iZi.balanceOf(tester.address)).toString();
+
+        const startTime = timestampStart + Math.round(20.5 * WEEK);
+        await ethers.provider.send('evm_setNextBlockTimestamp', [startTime]);
+
+        balance = stringAdd(balance, String(locks[nftId - 1].amount));
+        await veiZi.connect(tester).withdraw(nftId);
+
+        locks[nftId - 1].amount = 0;
+        locks[nftId - 1].slope = 0;
+        locks[nftId - 1].bias = 0;
+
+        const lock1 = await veiZi.nftLocked(nftId);
+        expect(lock1.amount.toString()).to.equal(String(locks[nftId - 1].amount));
+        expect(lock1.end.toString()).to.equal('0');
+
+        const {bias, slope, slopeChanges} = getLastPointAndSlopeChanges(locks, startTime);
+        const epoch = await veiZi.epoch();
+
+        const point = await veiZi.pointHistory(epoch);
+        expect(point.bias.toString()).to.equal(BigNumber(bias).toFixed(0));
+        expect(point.slope.toString()).to.equal(BigNumber(slope).toFixed(0));
+        expect(point.timestamp.toString()).to.equal(BigNumber(startTime).toFixed(0));
+
+        for (var week = 21; week <= 35; week ++) {
+            const checkTime1 = timestampStart + week * WEEK - Math.round(WEEK / 2);
+            const sc1 = (await veiZi.slopeChanges(checkTime1)).toString();
+            expect(sc1).to.equal('0');
+
+            const checkTime2 = timestampStart + week * WEEK;
+            const sc2 = (await veiZi.slopeChanges(checkTime2)).toString();
+            let slopeChangeValue = slopeChanges[checkTime2];
+            if (slopeChangeValue == undefined) {
+                slopeChangeValue = 0;
+            }
+            const sc2Expect = String(slopeChangeValue);
+            expect(sc2).to.equal(sc2Expect);
+        }
+        expect((await iZi.balanceOf(tester.address)).toString()).to.equal(balance);
+    });
 });
