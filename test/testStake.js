@@ -124,8 +124,6 @@ describe("test increase unlock time", function () {
     var iZi;
     var veiZi;
 
-    var locks;
-
     var timestampStart;
     var rewardPerBlock;
 
@@ -206,6 +204,9 @@ describe("test increase unlock time", function () {
         const rewardInfo1 = await getRewardInfo(veiZi);
         expect(rewardInfo1.accRewardPerShare).to.equal(globalAcc1);
         expect(stakingStatus1_1.lastTouchAccRewardPerShare).to.equal(globalAcc1);
+        expect(stakingStatus1_1.stakingId).to.equal('1');
+        expect((await veiZi.stakedNft(tester.address)).toString()).to.equal('1');
+        expect((await veiZi.stakedNftOwners('1')).toLowerCase()).to.equal(tester.address.toLowerCase());
         
 
         // phase2
@@ -227,6 +228,9 @@ describe("test increase unlock time", function () {
         const rewardInfo2 = await getRewardInfo(veiZi);
         expect(rewardInfo2.accRewardPerShare).to.equal(globalAcc2);
         expect(stakingStatus2_2.lastTouchAccRewardPerShare).to.equal(globalAcc2);
+        expect(stakingStatus2_2.stakingId).to.equal('2');
+        expect((await veiZi.stakedNft(other.address)).toString()).to.equal('2');
+        expect((await veiZi.stakedNftOwners('2')).toLowerCase()).to.equal(other.address.toLowerCase());
 
         // phase3
         await waitUntilJustBefore(currentBlockNumber + 30);
@@ -249,6 +253,9 @@ describe("test increase unlock time", function () {
         const rewardInfo3 = await getRewardInfo(veiZi);
         expect(rewardInfo3.accRewardPerShare).to.equal(globalAcc3);
         expect(stakingStatus1_3.lastTouchAccRewardPerShare).to.equal(globalAcc3);
+        expect(stakingStatus1_3.stakingId).to.equal('1');
+        expect((await veiZi.stakedNft(tester.address)).toString()).to.equal('1');
+        expect((await veiZi.stakedNftOwners('1')).toLowerCase()).to.equal(tester.address.toLowerCase());
 
 
         // phase4
@@ -270,6 +277,9 @@ describe("test increase unlock time", function () {
         const rewardInfo4 = await getRewardInfo(veiZi);
         expect(rewardInfo4.accRewardPerShare).to.equal(globalAcc4);
         expect(stakingStatus7_4.lastTouchAccRewardPerShare).to.equal(globalAcc4);
+        expect(stakingStatus7_4.stakingId).to.equal('3');
+        expect((await veiZi.stakedNft(other2.address)).toString()).to.equal('7');
+        expect((await veiZi.stakedNftOwners('7')).toLowerCase()).to.equal(other2.address.toLowerCase());
 
         // phase5
         await waitUntilJustBefore(currentBlockNumber + 35);
@@ -285,6 +295,11 @@ describe("test increase unlock time", function () {
         expect(actualReward2_5).to.equal(expectReward2_5);
         const rewardInfo5 = await getRewardInfo(veiZi);
         expect(rewardInfo5.accRewardPerShare).to.equal(globalAcc5);
+        const stakingStatus2_5 = await getStakingStatus(veiZi, '2');
+        // after unStake
+        expect(stakingStatus2_5.stakingId).to.equal('0'); 
+        expect((await veiZi.stakedNft(other.address)).toString()).to.equal('0');
+        expect(BigNumber((await veiZi.stakedNftOwners('2')).toLowerCase()).toFixed(0)).to.equal('0');
 
         // phase6
         await waitUntilJustBefore(currentBlockNumber + 41);
@@ -307,6 +322,9 @@ describe("test increase unlock time", function () {
         const rewardInfo6 = await getRewardInfo(veiZi);
         expect(rewardInfo6.accRewardPerShare).to.equal(globalAcc6);
         expect(stakingStatus1_6.lastTouchAccRewardPerShare).to.equal(globalAcc6);
+        expect(stakingStatus1_6.stakingId).to.equal('1');
+        expect((await veiZi.stakedNft(tester.address)).toString()).to.equal('1');
+        expect((await veiZi.stakedNftOwners('1')).toLowerCase()).to.equal(tester.address.toLowerCase());
 
         // phase7
         await waitUntilJustBefore(currentBlockNumber + 42);
@@ -322,6 +340,11 @@ describe("test increase unlock time", function () {
         expect(actualReward1_7).to.equal(expectReward1_7);
         const rewardInfo7 = await getRewardInfo(veiZi);
         expect(rewardInfo7.accRewardPerShare).to.equal(globalAcc7);
+        const stakingStatus1_7 = await getStakingStatus(veiZi, '1');
+        // after unStake
+        expect(stakingStatus1_7.stakingId).to.equal('0'); 
+        expect((await veiZi.stakedNft(tester.address)).toString()).to.equal('0');
+        expect(BigNumber((await veiZi.stakedNftOwners('1')).toLowerCase()).toFixed(0)).to.equal('0');
 
     });
 
