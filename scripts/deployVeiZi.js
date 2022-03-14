@@ -49,10 +49,10 @@ async function main() {
 
   console.log('args: ', args);
 
-  const veiZi = await veiZiFactory.deploy(...args);
-  await veiZi.deployed();
+  // const veiZi = await veiZiFactory.deploy(...args);
+  // await veiZi.deployed();
 
-  console.log("veiZi2 Contract Address: " , veiZi.address);
+  // console.log("veiZi2 Contract Address: " , veiZi.address);
 
 }
 
