@@ -1,5 +1,6 @@
 require("@nomiclabs/hardhat-waffle");
 require("hardhat-contract-sizer");
+require("@nomiclabs/hardhat-truffle5");
 
 const secret = require('./.secret.js');
 
@@ -50,7 +51,7 @@ module.exports = {
     ethereum: {
       url: "https://mainnet.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161",
       gas: 7792207,
-      gasPrice: 77000000000,
+      gasPrice: 22000000000,
       accounts: [sk]
     },
   },

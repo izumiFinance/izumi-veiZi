@@ -219,6 +219,9 @@ describe("test increase unlock time", function () {
     it("modify rewardPerBlock", async function () {
         const WEEK = Number((await veiZi.WEEK()).toString());
         const MAXTIME = Number((await veiZi.MAXTIME()).toString());
+
+        console.log('week: ', WEEK);
+        console.log('max time: ', MAXTIME);
         const rewardPerBlock2 = '50000000000';
         
         // phase1

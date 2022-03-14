@@ -35,17 +35,21 @@ async function main() {
 
   const rewardPerBlockNoDecimal = BigNumber(para.rewardPerBlockDecimal).times(10 ** Number(para.rewardTokenDecimal)).toFixed(0);
 
-  const veiZi = await veiZiFactory.deploy(
-      iZi, 
-      {
-        provider: para.rewardProvider,
-        accRewardPerShare: 0,
-        rewardPerBlock: rewardPerBlockNoDecimal,
-        lastTouchBlock: 0,
-        startBlock: para.startBlock,
-        endBlock: para.endBlock,
-      }
-  );
+  const args = [
+    iZi, 
+    {
+      provider: para.rewardProvider,
+      accRewardPerShare: 0,
+      rewardPerBlock: rewardPerBlockNoDecimal,
+      lastTouchBlock: 0,
+      startBlock: para.startBlock,
+      endBlock: para.endBlock,
+    }
+  ]
+
+  console.log('args: ', args);
+
+  const veiZi = await veiZiFactory.deploy(...args);
   await veiZi.deployed();
 
   console.log("veiZi2 Contract Address: " , veiZi.address);
