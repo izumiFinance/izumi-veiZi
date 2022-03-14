@@ -3,9 +3,9 @@ module.exports = [
     {
       provider: '0xfa0ad5F78D1fc96DEF92ef7252b8a548edF6d131',
       accRewardPerShare: 0,
-      rewardPerBlock: '16203703703703702000',
+      rewardPerBlock: '17662037037037038000',
       lastTouchBlock: 0,
-      startBlock: '14385000',
+      startBlock: '14386000',
       endBlock: '143850000'
     }
   ];
