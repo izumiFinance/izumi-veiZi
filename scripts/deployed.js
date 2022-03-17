@@ -5,11 +5,12 @@ const contracts = {
         veiZi: '0xC22Af3F30a22c6c02dC4C9a9AcF5c337Fad4Aa1F',
     },
     rinkeby: {
-		iZi: "0x40E2BA87F796FaBeEe98872F2085fC020DbAd47B",
+	    iZi: "0x40E2BA87F796FaBeEe98872F2085fC020DbAd47B",
     },
     ethereum: {
-		iZi: "0x9ad37205d608B8b219e6a2573f922094CEc5c200",
+	    iZi: "0x9ad37205d608B8b219e6a2573f922094CEc5c200",
         veiZi_iZi_PROVIDER: '0xfa0ad5F78D1fc96DEF92ef7252b8a548edF6d131',
+        veiZi: '0xB56A454d8DaC2AD4cB82337887717a2a427Fcd00',
     }
 }
 
