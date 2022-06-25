@@ -11,6 +11,9 @@ const contracts = {
 	    iZi: "0x9ad37205d608B8b219e6a2573f922094CEc5c200",
         veiZi_iZi_PROVIDER: '0xfa0ad5F78D1fc96DEF92ef7252b8a548edF6d131',
         veiZi: '0xB56A454d8DaC2AD4cB82337887717a2a427Fcd00',
+    },
+    bscTest: {
+        iZi: '0x551197e6350936976DfFB66B2c3bb15DDB723250'
     }
 }
 
